@@ -45,14 +45,23 @@ def setup():
         cv.imshow("ok", res)
         key = cv.waitKey(30) & 0xFF
         if key == ord('c'):
-            print("El contorno se guardará como un círculo")
-            contornosValidados["circulo"].append(contornos[0])
+            if len(contornos) > 1:
+                print("Hay mas de un elemento detectado")
+            else:
+                print("El contorno se guardará como un círculo")
+                contornosValidados["circulo"].append(contornos[0])
         if key == ord('t'):
-            print("El contorno se guardará como un triangulo")
-            contornosValidados["triangulo"].append(contornos[0])
+            if len(contornos) > 1:
+                print("Hay mas de un elemento detectado")
+            else:
+                print("El contorno se guardará como un triangulo")
+                contornosValidados["triangulo"].append(contornos[0])
         if key == ord('x'):
-            print("El contorno se guardará como un cuadrado")
-            contornosValidados["cuadrado"].append(contornos[0])
+            if len(contornos) > 1:
+                print("Hay mas de un elemento detectado")
+            else:
+                print("El contorno se guardará como un cuadrado")
+                contornosValidados["cuadrado"].append(contornos[0])
         if cv.waitKey(30) == 27:
             break
 
@@ -110,7 +119,7 @@ def executeModel():
         for contorno in contornos:
             x, y, w, h = cv.boundingRect(contorno)
             resultadoContorno, distancia = detectar_forma(contorno, contornosValidados)
-            text = resultadoContorno + " distancia: " + str(round(distancia, 2))
+            text = resultadoContorno + " distancia: " + str(round(distancia, 4))
             cv.putText(frame_out, text, (x, y - 10), cv.FONT_HERSHEY_SIMPLEX, 0.7, green, 2)
         cv.imshow("escaneando", frame_out)
         key = cv.waitKey(30) & 0xFF
