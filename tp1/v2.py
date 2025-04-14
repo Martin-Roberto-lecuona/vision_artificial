@@ -3,7 +3,7 @@ import numpy as np
 import os
 
 #from matplotlib.pyplot import imshow
-
+green = (0, 255, 0)
 
 def nothing(x):
     pass
@@ -25,7 +25,7 @@ contornosValidados = {
 def createWindow():
     cv.namedWindow("Parametros")
     # Crear sliders
-    cv.createTrackbar("Umbral binario", "Parametros", 127, 255, nothing)
+    cv.createTrackbar("Umbral binario", "Parametros", 115, 255, nothing)
     cv.createTrackbar("Tam Kernel", "Parametros", 1, 20, nothing)
     # cv.createTrackbar("Match max dist", "Parametros", 20, 100, nothing)
 
@@ -49,7 +49,7 @@ def setup():
             contornosValidados["circulo"].append(contornos[0])
         if key == ord('t'):
             print("El contorno se guardará como un triangulo")
-            contornosValidados["triángulo"].append(contornos[0])
+            contornosValidados["triangulo"].append(contornos[0])
         if key == ord('x'):
             print("El contorno se guardará como un cuadrado")
             contornosValidados["cuadrado"].append(contornos[0])
@@ -104,12 +104,16 @@ def executeModel():
         if not ret:
             break
         frame_out = frame.copy()
+
+        contornos = getContour(frame)
+        cv.drawContours(frame_out, contornos, -1, green, 2)
+        for contorno in contornos:
+            x, y, w, h = cv.boundingRect(contorno)
+            resultadoContorno, distancia = detectar_forma(contorno, contornosValidados)
+            text = resultadoContorno + " distancia: " + str(round(distancia, 2))
+            cv.putText(frame_out, text, (x, y - 10), cv.FONT_HERSHEY_SIMPLEX, 0.7, green, 2)
         cv.imshow("escaneando", frame_out)
         key = cv.waitKey(30) & 0xFF
-        if key == ord('c'):
-            contorno = getContour(frame)
-            resultadoContorno, distancia = detectar_forma(contorno[0], contornosValidados)
-            print("El contorno obtenido es un " + resultadoContorno + " con una distancia " + str(distancia))
         if cv.waitKey(30) == 27:
             break
 
