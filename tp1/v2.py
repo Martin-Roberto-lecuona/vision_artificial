@@ -10,7 +10,6 @@ def nothing(x):
 
 # Inicializar webcam
 cap = cv.VideoCapture(0)
-cv.namedWindow("Setup")
 
 referencias = {}
 contornosValidados = {
@@ -19,13 +18,13 @@ contornosValidados = {
     "circulo": []
 }
 
-def createWindow():
+def create_window():
     cv.namedWindow("Parametros")
     cv.createTrackbar("Umbral binario", "Parametros", 115, 255, nothing)
     cv.createTrackbar("Tam Kernel", "Parametros", 1, 20, nothing)
 
 # Cargar imágenes de referencia
-def setup():
+def calibration_mode():
     while True:
         ret, frame = cap.read()
         if not ret:
@@ -33,7 +32,7 @@ def setup():
         frame_out = frame.copy()
         contornos = getContour(frame)
         res = cv.drawContours(frame_out, contornos, -1, (0,255,0), 2)
-        cv.imshow("ok", res)
+        cv.imshow("Detección", res)
         key = cv.waitKey(30) & 0xFF
         if key == ord('c'):
             if len(contornos) > 1:
@@ -64,7 +63,7 @@ def getContour(frame):
     # Threshold binario
     umbral = cv.getTrackbarPos("Umbral binario", "Parametros")
     _, binaria = cv.threshold(gris, umbral, 255, cv.THRESH_BINARY_INV)
-    cv.imshow("Calibración", binaria)
+    cv.imshow("Parametros", binaria)
     # Operación morfológica
     tam = cv.getTrackbarPos("Tam Kernel", "Parametros") * 2 + 1
     kernel = cv.getStructuringElement(cv.MORPH_RECT, (tam, tam))
@@ -74,12 +73,8 @@ def getContour(frame):
     contornos, _ = cv.findContours(binaria, cv.RETR_EXTERNAL, cv.CONTOURS_MATCH_I1)
     return contornos
 
-createWindow()
-setup()
-cv.destroyAllWindows()
-print("Calibración finalizada. Comenzando reconocimiento.")
 
-def detectar_forma(contorno_actual, contornosValidados):
+def detection_mode(contorno_actual, contornosValidados):
     menor_distancia = float('inf')
     forma_detectada = None
 
@@ -103,7 +98,7 @@ def executeModel():
         cv.drawContours(frame_out, contornos, -1, green, 2)
         for contorno in contornos:
             x, y, w, h = cv.boundingRect(contorno)
-            resultadoContorno, distancia = detectar_forma(contorno, contornosValidados)
+            resultadoContorno, distancia = detection_mode(contorno, contornosValidados)
             if distancia < 0.2 :
                 text = resultadoContorno + " distancia: " + str(round(distancia, 4))
                 cv.putText(frame_out, text, (x, y - 10), cv.FONT_HERSHEY_SIMPLEX, 0.7, green, 2)
@@ -111,8 +106,24 @@ def executeModel():
         if cv.waitKey(30) == 27:
             break
 
-createWindow()
-executeModel()
+
+def main():
+    print("Calibrando figuras cuadrado (X) triángulo (T) círculo (C)")
+    create_window()
+    cv.namedWindow("Detección")
+    calibration_mode()
+    print("Calibración finalizada. Comenzando reconocimiento.")
+
+    create_window()
+    executeModel()
+    print("Reconocimiento finalizado.")
+    cap.release()
+    cv.destroyAllWindows()
+
+
+if __name__ == "__main__":
+    main()
+
 
 #MatchShapes
 #0.0	Formas idénticas
