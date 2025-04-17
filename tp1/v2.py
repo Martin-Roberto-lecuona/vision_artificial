@@ -12,8 +12,6 @@ def nothing(x):
 cap = cv.VideoCapture(0)
 cv.namedWindow("Setup")
 
-
-
 referencias = {}
 contornosValidados = {
     "triangulo": [],
@@ -21,14 +19,10 @@ contornosValidados = {
     "circulo": []
 }
 
-
 def createWindow():
     cv.namedWindow("Parametros")
-    # Crear sliders
     cv.createTrackbar("Umbral binario", "Parametros", 115, 255, nothing)
     cv.createTrackbar("Tam Kernel", "Parametros", 1, 20, nothing)
-    # cv.createTrackbar("Match max dist", "Parametros", 20, 100, nothing)
-
 
 # Cargar imágenes de referencia
 def setup():
@@ -37,10 +31,7 @@ def setup():
         if not ret:
             break
         frame_out = frame.copy()
-        #----------
-        # Convertir a escala de grises
         contornos = getContour(frame)
-        #----
         res = cv.drawContours(frame_out, contornos, -1, (0,255,0), 2)
         cv.imshow("ok", res)
         key = cv.waitKey(30) & 0xFF
@@ -69,14 +60,11 @@ def setup():
 
 
 def getContour(frame):
-
-
     gris = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
-    # cv.imshow("blancoYNegro", gris)
     # Threshold binario
     umbral = cv.getTrackbarPos("Umbral binario", "Parametros")
     _, binaria = cv.threshold(gris, umbral, 255, cv.THRESH_BINARY_INV)
-    cv.imshow("Parametros", binaria)
+    cv.imshow("Calibración", binaria)
     # Operación morfológica
     tam = cv.getTrackbarPos("Tam Kernel", "Parametros") * 2 + 1
     kernel = cv.getStructuringElement(cv.MORPH_RECT, (tam, tam))
@@ -88,10 +76,8 @@ def getContour(frame):
 
 createWindow()
 setup()
-#cap.release()
 cv.destroyAllWindows()
-print("Setup finalizado. Comenzando reconocimiento")
-print(contornosValidados)
+print("Calibración finalizada. Comenzando reconocimiento.")
 
 def detectar_forma(contorno_actual, contornosValidados):
     menor_distancia = float('inf')
@@ -113,18 +99,24 @@ def executeModel():
         if not ret:
             break
         frame_out = frame.copy()
-
         contornos = getContour(frame)
         cv.drawContours(frame_out, contornos, -1, green, 2)
         for contorno in contornos:
             x, y, w, h = cv.boundingRect(contorno)
             resultadoContorno, distancia = detectar_forma(contorno, contornosValidados)
-            text = resultadoContorno + " distancia: " + str(round(distancia, 4))
-            cv.putText(frame_out, text, (x, y - 10), cv.FONT_HERSHEY_SIMPLEX, 0.7, green, 2)
-        cv.imshow("escaneando", frame_out)
-        key = cv.waitKey(30) & 0xFF
+            if distancia < 0.2 :
+                text = resultadoContorno + " distancia: " + str(round(distancia, 4))
+                cv.putText(frame_out, text, (x, y - 10), cv.FONT_HERSHEY_SIMPLEX, 0.7, green, 2)
+        cv.imshow("Detección", frame_out)
         if cv.waitKey(30) == 27:
             break
 
 createWindow()
 executeModel()
+
+#MatchShapes
+#0.0	Formas idénticas
+#0.01 - 0.1	Formas muy parecidas
+#0.1 - 0.3	Parecidas (puede variar mucho)
+#0.3	Poco parecidas o distintas
+#1.0	Formas claramente diferentes
