@@ -1,133 +1,135 @@
 import cv2 as cv
-import numpy as np
-import os
 
-#from matplotlib.pyplot import imshow
-green = (0, 255, 0)
+# Constantes
+GREEN = (0, 255, 0)
+ESC_KEY = 27
+CALIBRATION_WINDOW = "Calibración - Visualización"
+DETECTION_WINDOW = "Detección en vivo"
+PARAMS_WINDOW = "Parametros"
 
-def nothing(x):
-    pass
-
-# Inicializar webcam
-cap = cv.VideoCapture(0)
-
-referencias = {}
-contornosValidados = {
+# Diccionario de contornos calibrados por forma
+contornos_validados = {
     "triangulo": [],
     "cuadrado": [],
     "circulo": []
 }
 
-def create_window():
-    cv.namedWindow("Parametros")
-    cv.createTrackbar("Umbral binario", "Parametros", 115, 255, nothing)
-    cv.createTrackbar("Tam Kernel", "Parametros", 1, 20, nothing)
+def nothing(x):
+    pass
 
-# Cargar imágenes de referencia
-def calibration_mode():
-    while True:
-        ret, frame = cap.read()
-        if not ret:
-            break
-        frame_out = frame.copy()
-        contornos = getContour(frame)
-        res = cv.drawContours(frame_out, contornos, -1, (0,255,0), 2)
-        cv.imshow("Detección", res)
-        key = cv.waitKey(30) & 0xFF
-        if key == ord('c'):
-            if len(contornos) > 1:
-                print("Hay mas de un elemento detectado")
-            else:
-                print("El contorno se guardará como un círculo")
-                contornosValidados["circulo"].append(contornos[0])
-        if key == ord('t'):
-            if len(contornos) > 1:
-                print("Hay mas de un elemento detectado")
-            else:
-                print("El contorno se guardará como un triangulo")
-                contornosValidados["triangulo"].append(contornos[0])
-        if key == ord('x'):
-            if len(contornos) > 1:
-                print("Hay mas de un elemento detectado")
-            else:
-                print("El contorno se guardará como un cuadrado")
-                contornosValidados["cuadrado"].append(contornos[0])
-        if cv.waitKey(30) == 27:
-            break
+def create_trackbars():
+    """Crea sliders para ajustar umbral y tamaño de kernel."""
+    cv.createTrackbar("Umbral binario", PARAMS_WINDOW, 115, 255, nothing)
+    cv.createTrackbar("Tam Kernel", PARAMS_WINDOW, 1, 20, nothing)
 
-    return referencias
+def obtener_parametros():
+    """Obtiene los valores actuales de los sliders."""
+    umbral = cv.getTrackbarPos("Umbral binario", PARAMS_WINDOW)
+    tam_kernel = cv.getTrackbarPos("Tam Kernel", PARAMS_WINDOW) * 2 + 1
+    return umbral, tam_kernel
 
-
-def getContour(frame):
+def obtener_contornos(frame):
+    """Procesa la imagen para detectar contornos."""
     gris = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
-    # Threshold binario
-    umbral = cv.getTrackbarPos("Umbral binario", "Parametros")
+    umbral, tam_kernel = obtener_parametros()
     _, binaria = cv.threshold(gris, umbral, 255, cv.THRESH_BINARY_INV)
-    cv.imshow("Parametros", binaria)
-    # Operación morfológica
-    tam = cv.getTrackbarPos("Tam Kernel", "Parametros") * 2 + 1
-    kernel = cv.getStructuringElement(cv.MORPH_RECT, (tam, tam))
+
+    kernel = cv.getStructuringElement(cv.MORPH_RECT, (tam_kernel, tam_kernel))
     binaria = cv.morphologyEx(binaria, cv.MORPH_OPEN, kernel)
     binaria = cv.morphologyEx(binaria, cv.MORPH_CLOSE, kernel)
-    # Encontrar contornos
-    contornos, _ = cv.findContours(binaria, cv.RETR_EXTERNAL, cv.CONTOURS_MATCH_I1)
+
+    cv.imshow(PARAMS_WINDOW, binaria)
+    contornos, _ = cv.findContours(binaria, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
     return contornos
 
-
-def detection_mode(contorno_actual, contornosValidados):
+def detectar_forma(contorno_actual):
+    """Compara un contorno con los calibrados y retorna la forma más parecida."""
     menor_distancia = float('inf')
     forma_detectada = None
 
-    for tipo, lista_contornos in contornosValidados.items():
-        for ref in lista_contornos:
-            # Comparar el contorno actual con cada contorno guardado
+    for forma, referencias in contornos_validados.items():
+        for ref in referencias:
             distancia = cv.matchShapes(contorno_actual, ref, cv.CONTOURS_MATCH_I1, 0.0)
             if distancia < menor_distancia:
                 menor_distancia = distancia
-                forma_detectada = tipo
+                forma_detectada = forma
 
     return forma_detectada, menor_distancia
 
-def executeModel():
+def modo_calibracion(cap):
+    """Permite capturar manualmente formas de referencia."""
+    print("[MODO] Calibración activa. Presione 'c', 't' o 'x' para guardar forma.")
     while True:
         ret, frame = cap.read()
         if not ret:
-            break
-        frame_out = frame.copy()
-        contornos = getContour(frame)
-        cv.drawContours(frame_out, contornos, -1, green, 2)
-        for contorno in contornos:
-            x, y, w, h = cv.boundingRect(contorno)
-            resultadoContorno, distancia = detection_mode(contorno, contornosValidados)
-            if distancia < 0.2 :
-                text = resultadoContorno + " distancia: " + str(round(distancia, 4))
-                cv.putText(frame_out, text, (x, y - 10), cv.FONT_HERSHEY_SIMPLEX, 0.7, green, 2)
-        cv.imshow("Detección", frame_out)
-        if cv.waitKey(30) == 27:
+            print("[ERROR] No se pudo acceder a la cámara.")
             break
 
+        frame_out = frame.copy()
+        contornos = obtener_contornos(frame)
+        cv.drawContours(frame_out, contornos, -1, GREEN, 2)
+        cv.imshow(CALIBRATION_WINDOW, frame_out)
+
+        key = cv.waitKey(30) & 0xFF
+
+        if key in [ord('c'), ord('t'), ord('x')]:
+            forma = {'c': 'circulo', 't': 'triangulo', 'x': 'cuadrado'}[chr(key)]
+            if len(contornos) != 1:
+                print("[ADVERTENCIA] Debe haber exactamente un solo contorno para guardar.")
+            else:
+                contornos_validados[forma].append(contornos[0])
+                print(f"[INFO] Contorno guardado como {forma}.")
+
+        if key == ESC_KEY:
+            print("[MODO] Finalizando calibración...")
+            break
+
+def modo_deteccion(cap):
+    """Reconocimiento de formas en tiempo real."""
+    print("[MODO] Detección activa. Presione ESC para salir.")
+    while True:
+        ret, frame = cap.read()
+        if not ret:
+            print("[ERROR] No se pudo acceder a la cámara.")
+            break
+
+        frame_out = frame.copy()
+        contornos = obtener_contornos(frame)
+        cv.drawContours(frame_out, contornos, -1, GREEN, 2)
+
+        for contorno in contornos:
+            forma, distancia = detectar_forma(contorno)
+            if distancia < 0.2:
+                x, y, w, h = cv.boundingRect(contorno)
+                texto = f"{forma} (dist: {round(distancia, 4)})"
+                cv.putText(frame_out, texto, (x, y - 10), cv.FONT_HERSHEY_SIMPLEX, 0.7, GREEN, 2)
+
+        cv.imshow(DETECTION_WINDOW, frame_out)
+
+        if cv.waitKey(30) == ESC_KEY:
+            print("[MODO] Finalizando detección...")
+            break
 
 def main():
-    print("Calibrando figuras cuadrado (X) triángulo (T) círculo (C)")
-    create_window()
-    cv.namedWindow("Detección")
-    calibration_mode()
-    print("Calibración finalizada. Comenzando reconocimiento.")
+    cap = cv.VideoCapture(0)
+    if not cap.isOpened():
+        print("[ERROR] No se pudo abrir la cámara.")
+        return
 
-    create_window()
-    executeModel()
-    print("Reconocimiento finalizado.")
+    # Configurar UI
+    cv.namedWindow(PARAMS_WINDOW)
+    create_trackbars()
+
+    cv.namedWindow(CALIBRATION_WINDOW)
+    modo_calibracion(cap)
+    cv.destroyWindow(CALIBRATION_WINDOW)
+
+    cv.namedWindow(DETECTION_WINDOW)
+    modo_deteccion(cap)
+
+    # Liberar recursos
     cap.release()
     cv.destroyAllWindows()
 
-
 if __name__ == "__main__":
     main()
-
-
-#MatchShapes
-#0.0	Formas idénticas
-#0.01 - 0.1	Formas muy parecidas
-#0.1 - 0.3	Parecidas (puede variar mucho)
-#0.3	Poco parecidas o distintas
-#1.0	Formas claramente diferentes
