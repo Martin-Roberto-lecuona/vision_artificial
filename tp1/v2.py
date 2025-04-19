@@ -2,6 +2,7 @@ import cv2 as cv
 
 # Constantes
 GREEN = (0, 255, 0)
+RED = (0, 0, 255)
 ESC_KEY = 27
 CALIBRATION_WINDOW = "Calibración - Visualización"
 DETECTION_WINDOW = "Detección en vivo"
@@ -21,17 +22,19 @@ def create_trackbars():
     """Crea sliders para ajustar umbral y tamaño de kernel."""
     cv.createTrackbar("Umbral binario", PARAMS_WINDOW, 115, 255, nothing)
     cv.createTrackbar("Tam Kernel", PARAMS_WINDOW, 1, 20, nothing)
+    cv.createTrackbar("Tamaño mínimo contornos", PARAMS_WINDOW, 5000, 50000, nothing)
 
 def obtener_parametros():
     """Obtiene los valores actuales de los sliders."""
     umbral = cv.getTrackbarPos("Umbral binario", PARAMS_WINDOW)
     tam_kernel = cv.getTrackbarPos("Tam Kernel", PARAMS_WINDOW) * 2 + 1
-    return umbral, tam_kernel
+    tam_min_contornos = cv.getTrackbarPos("Tamaño mínimo contornos", PARAMS_WINDOW)
+    return umbral, tam_kernel, tam_min_contornos
 
 def obtener_contornos(frame):
     """Procesa la imagen para detectar contornos."""
     gris = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
-    umbral, tam_kernel = obtener_parametros()
+    umbral, tam_kernel, tam_min_contornos = obtener_parametros()
     _, binaria = cv.threshold(gris, umbral, 255, cv.THRESH_BINARY_INV)
 
     kernel = cv.getStructuringElement(cv.MORPH_RECT, (tam_kernel, tam_kernel))
@@ -40,7 +43,8 @@ def obtener_contornos(frame):
 
     cv.imshow(PARAMS_WINDOW, binaria)
     contornos, _ = cv.findContours(binaria, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
-    return contornos
+    filteredContours = [contorno for contorno in contornos if cv.contourArea(contorno) > tam_min_contornos]
+    return filteredContours
 
 def detectar_forma(contorno_actual):
     """Compara un contorno con los calibrados y retorna la forma más parecida."""
@@ -99,10 +103,12 @@ def modo_deteccion(cap):
 
         for contorno in contornos:
             forma, distancia = detectar_forma(contorno)
+            x, y, w, h = cv.boundingRect(contorno)
             if distancia < 0.2:
-                x, y, w, h = cv.boundingRect(contorno)
                 texto = f"{forma} (dist: {round(distancia, 4)})"
                 cv.putText(frame_out, texto, (x, y - 10), cv.FONT_HERSHEY_SIMPLEX, 0.7, GREEN, 2)
+            else:
+                cv.putText(frame_out, "Desconocido", (x, y - 10), cv.FONT_HERSHEY_SIMPLEX, 0.7, RED, 2)
 
         cv.imshow(DETECTION_WINDOW, frame_out)
 
