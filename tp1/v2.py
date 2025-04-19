@@ -23,6 +23,7 @@ def create_trackbars():
     cv.createTrackbar("Umbral binario", PARAMS_WINDOW, 115, 255, nothing)
     cv.createTrackbar("Tam Kernel", PARAMS_WINDOW, 1, 20, nothing)
     cv.createTrackbar("Tamaño mínimo contornos", PARAMS_WINDOW, 5000, 50000, nothing)
+    cv.createTrackbar("Distancia Máxima", PARAMS_WINDOW, 20, 100, nothing)
 
 def obtener_parametros():
     """Obtiene los valores actuales de los sliders."""
@@ -104,7 +105,8 @@ def modo_deteccion(cap):
         for contorno in contornos:
             forma, distancia = detectar_forma(contorno)
             x, y, w, h = cv.boundingRect(contorno)
-            if distancia < 0.2:
+            match_umbral = cv.getTrackbarPos("Distancia Máxima", "Parametros") / 100.0
+            if distancia < match_umbral:
                 texto = f"{forma} (dist: {round(distancia, 4)})"
                 cv.putText(frame_out, texto, (x, y - 10), cv.FONT_HERSHEY_SIMPLEX, 0.7, GREEN, 2)
             else:
