@@ -67,8 +67,8 @@ def modo_calibracion(cap):
                 print("Las invariantes de hu son")
                 momentos = cv.moments(contornos[0])
                 hu = cv.HuMoments(momentos)
-                X.append(hu.tolist())
-                Y.append(key)
+                X.append(hu.flatten().tolist())
+                Y.append(int(chr(key)))
 
         if key == ESC_KEY:
             print("[MODO] Finalizando calibración...")
