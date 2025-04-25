@@ -46,7 +46,7 @@ def obtener_contornos(frame):
 
 def modo_calibracion(cap):
     """Permite capturar manualmente formas de referencia."""
-    print("[MODO] Calibración activa. Presione 'c', 't' o 'x' para guardar forma.")
+    print("[MODO] Calibración activa. Presione 1 para triangulo, 2 para cuadrado y 3 para circulo para guardar forma.")
     while True:
         ret, frame = cap.read()
         if not ret:
