@@ -119,7 +119,7 @@ def modo_deteccion(cap):
             break
 
 def main():
-    cap = cv.VideoCapture(0)
+    cap = cv.VideoCapture(2)
     if not cap.isOpened():
         print("[ERROR] No se pudo abrir la cámara.")
         return

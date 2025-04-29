@@ -11,9 +11,9 @@ X = []  # Descriptores de Hu
 Y = []  # Etiquetas
 
 dictionary = {
-    1: "triangulo",
-    2: "cuadrado",
-    3: "circulo"
+    '1': "triangulo",
+    '2': "cuadrado",
+    '3' : "circulo"
 }
 result = []
 def create_trackbars():
@@ -64,7 +64,7 @@ def modo_calibracion(cap):
             if len(contornos) != 1:
                 print("[ADVERTENCIA] Debe haber exactamente un solo contorno para guardar.")
             else:
-                print("Las invariantes de hu son")
+                print("Se ha detectado un " + dictionary[chr(key)])
                 momentos = cv.moments(contornos[0])
                 hu = cv.HuMoments(momentos)
                 X.append(hu.flatten().tolist())
@@ -87,7 +87,7 @@ def main():
     modo_calibracion(cap)
     print(X)
     print(Y)
-    with open("archivo.txt", "w") as f:
+    with open("descriptores.txt", "w") as f:
         f.write(f"{X}\n")
         f.write(f"{Y}\n")
     # Liberar recursos
