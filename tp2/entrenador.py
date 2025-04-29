@@ -26,10 +26,10 @@ def main():
     Y = eval(lineas[1].strip())
 
     # entrenamiento
-    clasificador = tree.DecisionTreeClassifier(criterion="entropy",        # usa entropía en vez de gini
-                                               max_depth=2,                # profundidad máxima del árbol
-                                               min_samples_split=4,        # mínimo para hacer un split
-                                               min_samples_leaf=2,         # mínimo en cada hoja
+    clasificador = tree.DecisionTreeClassifier(criterion="entropy",
+                                               max_depth=2,
+                                               min_samples_split=4,
+                                               min_samples_leaf=2,
                                                ).fit(X, Y)
 
     # visualización del árbol de decisión resultante
