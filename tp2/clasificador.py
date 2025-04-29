@@ -63,7 +63,7 @@ def modo_deteccion(cap):
         cv.drawContours(frame_out, contornos, -1, GREEN, 2)
 
         for contorno in contornos:
-            momentos = cv.moments(contornos[0])
+            momentos = cv.moments(contorno)
             hu = cv.HuMoments(momentos)
             etiquetaPredicha = clasificador.predict(hu.flatten().reshape(1, -1))
             x, y, w, h = cv.boundingRect(contorno)
