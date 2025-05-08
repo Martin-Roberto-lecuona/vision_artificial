@@ -66,7 +66,9 @@ def modo_deteccion(cap):
             momentos = cv.moments(contorno)
             hu = cv.HuMoments(momentos)
             etiquetaPredicha = clasificador.predict(hu.flatten().reshape(1, -1))
-            x, y, w, h = cv.boundingRect(contorno)
+            # hu.flatten() matriz 7x1 => vec de 7 elementos.
+            # reshape(1, -1) lo pone en formato adecuado para el clasificador (una fila con 7 columnas).
+            x, y, w, h = cv.boundingRect(contorno) # x,y pos w = ancho h= alto
             prediction = dictionary[int(etiquetaPredicha[0])]
             cv.putText(frame_out, prediction, (x, y - 10), cv.FONT_HERSHEY_SIMPLEX, 0.7, GREEN, 2)
 
