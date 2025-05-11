@@ -12,15 +12,70 @@ mp_drawing = mp.solutions.drawing_utils
 hands = mp_hands.Hands(max_num_hands=1)
 
 # Lista de gestos válidos
-GESTURES = ['open', 'fist', 'point', 'peace', 'three']
-TIME_TO_RESPOND = 10
-THRES_HOLD = 0.8
+GESTURES = ['Abierto', 'Punio', 'Uno', 'Paz', 'Tres', 'Cuernos', 'Pulgar', 'Menique']
 
+THRES_HOLD = 0.8
+def pantalla_inicio():
+    pantalla = 255 * np.ones((500, 600, 3), dtype=np.uint8)
+    reglas_base = [
+        "Bienvenido a Simon Dice - Gestos 🖐️",
+        "",
+        "Reglas del juego:",
+        "- Si dice 'Simon dice', haz el gesto.",
+        "- Si NO dice 'Simon dice', ¡no lo hagas!",
+        "- Si fallas, vuelves al nivel 1.",
+        "- Si aciertas, subes de nivel.",
+        "- El juego se juega con la palma de la mano apuntando hacia la cámara.",
+        "",
+        "Selecciona la dificultad y el juego comenzara:",
+        "1 - Facil (8s)    2 - Normal (3s)    3 - Dificil (1s)",
+        "",
+        "'ESC' para salir..."
+    ]
+
+    dificultad = "Normal"
+    tiempo = 3  # por defecto
+
+    while True:
+        pantalla.fill(255)  # limpiar fondo
+        y = 50
+        for regla in reglas_base:
+            cv2.putText(pantalla, regla, (30, y), cv2.FONT_HERSHEY_SIMPLEX,
+                        0.6, (0, 0, 0), 2)
+            y += 35
+
+        cv2.putText(pantalla, f"Dificultad seleccionada: {dificultad}", (30, y + 20),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
+
+        cv2.imshow("Simon Dice - Gestos", pantalla)
+        key = cv2.waitKey(1) & 0xFF
+
+        if key == ord('1'):
+            dificultad = "Facil"
+            tiempo = 8
+            cv2.destroyAllWindows()
+            return tiempo
+        elif key == ord('2'):
+            dificultad = "Normal"
+            tiempo = 3
+            cv2.destroyAllWindows()
+            return tiempo
+        elif key == ord('3'):
+            dificultad = "Dificil"
+            tiempo = 1
+            cv2.destroyAllWindows()
+            return tiempo
+        elif key == 27:  # ESC
+            cv2.destroyAllWindows()
+            exit()
+
+TIME_TO_RESPOND = pantalla_inicio()
 cap = cv2.VideoCapture(1)
 level = 1
 current_gesture = None
 start_time = 0
 output = cv2.namedWindow("Output de puntaje")
+cv2.moveWindow("Output de puntaje", 800, 100)
 output_frame = 255 * np.ones((400, 500, 3), dtype=np.uint8)  # fondo blanco
 output_lines = []
 
@@ -38,11 +93,14 @@ def detect_gesture(hand_landmarks):
         fingers.append(1 if hand_landmarks.landmark[tip].y < hand_landmarks.landmark[tip - 2].y else 0)
 
     gestures_map = {
-        (1, 1, 1, 1, 1): 'open',
-        (0, 0, 0, 0, 0): 'fist',
-        (0, 1, 0, 0, 0): 'point',
-        (0, 1, 1, 0, 0): 'peace',
-        (0, 1, 1, 1, 0): 'three',
+        (1, 1, 1, 1, 1): 'Abierto',
+        (0, 0, 0, 0, 0): 'Punio',
+        (0, 1, 0, 0, 0): 'Uno',
+        (0, 1, 1, 0, 0): 'Paz',
+        (1, 1, 1, 0, 0): 'Tres',
+        (0, 1, 0, 0, 1): 'Cuernos',
+        (1, 0, 0, 0, 0): 'Pulgar',
+        (0, 0, 0, 0, 1): 'Menique'
     }
 
     return gestures_map.get(tuple(fingers), 'unknown')
