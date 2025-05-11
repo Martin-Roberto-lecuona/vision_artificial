@@ -18,18 +18,18 @@ THRES_HOLD = 0.8
 def pantalla_inicio():
     pantalla = 255 * np.ones((500, 600, 3), dtype=np.uint8)
     reglas_base = [
-        "Bienvenido a Simon Dice - Gestos 🖐️",
+        "Bienvenido a Simon Dice - Gestos",
         "",
         "Reglas del juego:",
         "- Si dice 'Simon dice', haz el gesto.",
-        "- Si NO dice 'Simon dice', ¡no lo hagas!",
+        "- Si NO dice 'Simon dice', no lo hagas",
         "- Si fallas, vuelves al nivel 1.",
         "- Si aciertas, subes de nivel.",
-        "- El juego se juega con la palma de la mano apuntando hacia la cámara.",
+        "- El juego se juega con la palma de la mano ",
+        "apuntando hacia la camara.",
         "",
         "Selecciona la dificultad y el juego comenzara:",
         "1 - Facil (8s)    2 - Normal (3s)    3 - Dificil (1s)",
-        "",
         "'ESC' para salir..."
     ]
 
