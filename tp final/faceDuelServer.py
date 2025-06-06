@@ -56,60 +56,64 @@ def handle_client(conn, player_id):
 
 def accept_clients(server_socket):
     print("Esperando jugadores...")
-    while len(clients) < 2:
+    while len(clients) < 1:
         conn, addr = server_socket.accept()
         print(f"Jugador conectado desde {addr}")
         clients.append(conn)
         threading.Thread(target=handle_client, args=(conn, len(clients)-1)).start()
 
+
 def captura_datos_jugador():
     cap = cv2.VideoCapture(0)
-    start_time = None
-    captured = False
     datos = {}
 
-    while cap.isOpened():
-        ret, frame = cap.read()
-        if not ret:
-            break
+    while True:
+        start_time = None
+        captured = False
 
-        frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        results_face = face_detection.process(frame_rgb)
-        results_hand = hands.process(frame_rgb)
-        frame_height, frame_width = frame.shape[:2]
+        while cap.isOpened():
+            ret, frame = cap.read()
+            if not ret:
+                break
 
-        if start_time is None:
-            start_time = cv2.getTickCount()
+            frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            results_face = face_detection.process(frame_rgb)
+            results_hand = hands.process(frame_rgb)
+            frame_height, frame_width = frame.shape[:2]
 
-        elapsed = (cv2.getTickCount() - start_time) / cv2.getTickFrequency()
-        time_left = max(0, countdown_seconds - int(elapsed))
-        cv2.putText(frame, f"Disparo en {time_left}", (30, 60), cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0, 255, 255), 3)
+            if start_time is None:
+                start_time = cv2.getTickCount()
 
-        if elapsed >= countdown_seconds and not captured:
-            if results_face.detections:
-                bbox = results_face.detections[0].location_data.relative_bounding_box
-                cx = int((bbox.xmin + bbox.width / 2) * frame_width)
-                cy = int((bbox.ymin + bbox.height / 2) * frame_height)
-                datos['face_x'] = cx
-                datos['face_y'] = cy
+            elapsed = (cv2.getTickCount() - start_time) / cv2.getTickFrequency()
+            time_left = max(0, countdown_seconds - int(elapsed))
+            cv2.putText(frame, f"Disparo en {time_left}", (30, 60), cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0, 255, 255), 3)
 
-            if results_hand.multi_hand_landmarks:
-                hand = results_hand.multi_hand_landmarks[0]
-                index = hand.landmark[mp_hands.HandLandmark.INDEX_FINGER_TIP]
-                hand_x = int(index.x * frame_width)
-                hand_y = int(index.y * frame_height)
-                datos['hand_x'] = hand_x
-                datos['hand_y'] = hand_y
+            if elapsed >= countdown_seconds and not captured:
+                if results_face.detections:
+                    bbox = results_face.detections[0].location_data.relative_bounding_box
+                    cx = int((bbox.xmin + bbox.width / 2) * frame_width)
+                    cy = int((bbox.ymin + bbox.height / 2) * frame_height)
+                    datos['face_x'] = cx
+                    datos['face_y'] = cy
 
-            captured = True
+                if results_hand.multi_hand_landmarks:
+                    hand = results_hand.multi_hand_landmarks[0]
+                    index = hand.landmark[mp_hands.HandLandmark.INDEX_FINGER_TIP]
+                    hand_x = int(index.x * frame_width)
+                    hand_y = int(index.y * frame_height)
+                    datos['hand_x'] = hand_x
+                    datos['hand_y'] = hand_y
 
-        cv2.imshow("Captura Jugador", frame)
-        if cv2.waitKey(1) & 0xFF == 27 or captured:
-            break
+                captured = True
+
+            cv2.imshow("Captura Jugador", frame)
+            if cv2.waitKey(1) & 0xFF == 27 or captured:
+                break
 
     cap.release()
     cv2.destroyAllWindows()
     return datos
+
 
 def renderiza_disparo(mis_datos, del_oponente):
     canvas = np.zeros((480, 640, 3), dtype=np.uint8)
@@ -130,6 +134,11 @@ if __name__ == "__main__":
 
     try:
         accept_clients(server_socket)
+
+        # Captura datos locales del jugador 1 (host)
+        mis_datos = captura_datos_jugador()
+        renderiza_disparo(mis_datos, player_data[1])
+
     except KeyboardInterrupt:
         print("\nServidor detenido manualmente.")
     finally:
@@ -138,8 +147,6 @@ if __name__ == "__main__":
                 conn.close()
         server_socket.close()
 
-    # Captura datos locales del jugador 1 (host)
-    mis_datos = captura_datos_jugador()
     # Espera datos del oponente desde la estructura compartida
     import time
     while player_data[1] is None:
