@@ -55,15 +55,16 @@ def update_frame():
     if not ret:
         return
 
-    frame = cv2.flip(frame, 1)
+    #frame = cv2.flip(frame, 1)
     display = frame.copy()
 
     if mode == 'qr':
         retval, points = qr_detector.detect(frame)
         if retval and points is not None and points.shape[1] == 4:
-            homography = cv2.getPerspectiveTransform(points[0].astype(np.float32), TARGET_SQUARE)
-            mode = 'view'
-
+            H = cv2.getPerspectiveTransform(points[0].astype(np.float32), TARGET_SQUARE)
+            if abs(cv2.determinant(H)) > 1e-6:
+                homography = H  # Solo se actualiza si es una matriz válida
+                
     elif mode == 'manual':
         for pt in manual_points:
             cv2.circle(display, tuple(pt), 5, (0, 0, 255), -1)
