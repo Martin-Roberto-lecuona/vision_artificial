@@ -16,6 +16,7 @@ PORT = 65432
 clients = []
 player_data = [None, None]
 lock = threading.Lock()
+start_time = None
 
 # Inicialización de MediaPipe
 mp_face = mp.solutions.face_detection
@@ -66,79 +67,47 @@ def accept_clients(server_socket):
         return conn
 
 
-def captura_datos_jugador(conn):
-    cap = cv2.VideoCapture(0)
+def captura_datos_jugador(cap):
     datos = {}
-    start_time = None
+    global start_time
 
-    while True:
-        ret, frame = cap.read()
-        if not ret:
-            continue
+    ret, frame = cap.read()
+    #if not ret:
+    #    continue
 
-        frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        results_face = face_detection.process(frame_rgb)
-        results_hand = hands.process(frame_rgb)
-        frame_height, frame_width = frame.shape[:2]
+    frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+    results_face = face_detection.process(frame_rgb)
+    results_hand = hands.process(frame_rgb)
+    frame_height, frame_width = frame.shape[:2]
 
-        if start_time is None:
-            start_time = cv2.getTickCount()
+    if start_time is None:
+        start_time = cv2.getTickCount()
 
-        elapsed = (cv2.getTickCount() - start_time) / cv2.getTickFrequency()
-        time_left = max(0, countdown_seconds - int(elapsed))
-        cv2.putText(frame, f"Disparo en {time_left}", (30, 60), cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0, 255, 255), 3)
+    elapsed = (cv2.getTickCount() - start_time) / cv2.getTickFrequency()
+    time_left = max(0, countdown_seconds - int(elapsed))
+    cv2.putText(frame, f"Disparo en {time_left}", (30, 60), cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0, 255, 255), 3)
 
-        if elapsed >= countdown_seconds:
-            if results_face.detections:
-                bbox = results_face.detections[0].location_data.relative_bounding_box
-                cx = int((bbox.xmin + bbox.width / 2) * frame_width)
-                cy = int((bbox.ymin + bbox.height / 2) * frame_height)
-                datos['face_x'] = cx
-                datos['face_y'] = cy
+    if elapsed >= countdown_seconds:
+        if results_face.detections:
+            bbox = results_face.detections[0].location_data.relative_bounding_box
+            cx = int((bbox.xmin + bbox.width / 2) * frame_width)
+            cy = int((bbox.ymin + bbox.height / 2) * frame_height)
+            datos['face_x'] = cx
+            datos['face_y'] = cy
 
-            if results_hand.multi_hand_landmarks:
-                hand = results_hand.multi_hand_landmarks[0]
-                index = hand.landmark[mp_hands.HandLandmark.INDEX_FINGER_TIP]
-                hand_x = int(index.x * frame_width)
-                hand_y = int(index.y * frame_height)
-                datos['hand_x'] = hand_x
-                datos['hand_y'] = hand_y
-
-        try:
-            if conn:
-                encoded, buffer = cv2.imencode('.jpg', frame)
-                frame_bytes = buffer.tobytes()
-                conn.sendall(struct.pack('>I', len(frame_bytes)) + frame_bytes)
-                #conn.sendall(json.dumps({"msg": "Disparo emitido", "frame":frame.tolist()}).encode())
-            else:
-                print("Socket no válido o desconectado.")
-        except (BrokenPipeError, OSError) as e:
-            print(f"Error al enviar datos, el cliente se desconectó: {e}")
-
-        while player_data[0] is None:
-            time.sleep(0.1)
-        del_oponente = player_data[0]
-        canvas = np.zeros((480, 640, 3), dtype=np.uint8)
-        cv2.circle(canvas, (del_oponente['face_x'], del_oponente['face_y']), 30, (255, 255, 255), 2)
-        cv2.circle(canvas, (del_oponente['hand_x'], del_oponente['hand_y']), 10, (0, 255, 0), -1)
-        #cv2.line(canvas, (del_oponente['hand_x'], del_oponente['hand_y']), (mis_datos['face_x'], mis_datos['face_y']), (0, 0, 255), 4)
-        cv2.imshow("Impacto", canvas)
-        cv2.moveWindow("Impacto", 1000, 200)
-
-        cv2.waitKey(1)
-
-        #renderiza_disparo(datos, player_data[0])
-        cv2.imshow("Captura Jugador", frame)
-        cv2.waitKey(1)
-        #if cv2.waitKey(1) & 0xFF == 27 or captured:
-        #    break
-
-    cap.release()
-    cv2.destroyAllWindows()
-    return datos
+        if results_hand.multi_hand_landmarks:
+            hand = results_hand.multi_hand_landmarks[0]
+            index = hand.landmark[mp_hands.HandLandmark.INDEX_FINGER_TIP]
+            hand_x = int(index.x * frame_width)
+            hand_y = int(index.y * frame_height)
+            datos['hand_x'] = hand_x
+            datos['hand_y'] = hand_y
+    if time_left == 0:
+        start_time = None
+    return datos, frame
 
 
-def renderiza_disparo(mis_datos, del_oponente):
+def renderiza_disparo(frame, mis_datos, del_oponente):
     canvas = np.zeros((480, 640, 3), dtype=np.uint8)
     cv2.circle(canvas, (mis_datos['face_x'], mis_datos['face_y']), 30, (255, 255, 255), 2)
     cv2.circle(canvas, (del_oponente['hand_x'], del_oponente['hand_y']), 10, (0, 255, 0), -1)
@@ -148,19 +117,38 @@ def renderiza_disparo(mis_datos, del_oponente):
     cv2.waitKey(3000)
     cv2.destroyAllWindows()
 
+def enviar_datos_adversario(conn, frame):
+    try:
+        if conn:
+            encoded, buffer = cv2.imencode('.jpg', frame)
+            frame_bytes = buffer.tobytes()
+            conn.sendall(struct.pack('>I', len(frame_bytes)) + frame_bytes)
+            #conn.sendall(json.dumps({"msg": "Disparo emitido", "frame":frame.tolist()}).encode())
+        else:
+            print("Socket no válido o desconectado.")
+    except (BrokenPipeError, OSError) as e:
+        print(f"Error al enviar datos, el cliente se desconectó: {e}")
+
 if __name__ == "__main__":
 
     # Iniciar servidor y aceptar jugador 2
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server_socket.bind((HOST, PORT))
     server_socket.listen(2)
+    cap = cv2.VideoCapture(0)
 
     try:
         conn = accept_clients(server_socket)
 
-        # Captura datos locales del jugador 1 (host)
-        mis_datos = captura_datos_jugador(conn)
-        #renderiza_disparo(mis_datos, player_data[1])
+        while True:
+            # Captura datos locales del jugador 1 (host)
+            mis_datos, frame = captura_datos_jugador(cap)
+            enviar_datos_adversario(conn, frame)
+            #cv2.imshow("Juego", frame)
+            #cv2.waitKey(1)
+            while player_data[0] is None:
+                time.sleep(0.1)
+            #renderiza_disparo(frame, mis_datos, player_data[0])
 
     except KeyboardInterrupt:
         print("\nServidor detenido manualmente.")
@@ -169,9 +157,3 @@ if __name__ == "__main__":
             if conn:
                 conn.close()
         server_socket.close()
-
-    # Espera datos del oponente desde la estructura compartida
-    while player_data[1] is None:
-        time.sleep(0.1)
-
-    #renderiza_disparo(mis_datos, player_data[1])
