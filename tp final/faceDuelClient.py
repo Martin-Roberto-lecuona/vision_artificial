@@ -2,6 +2,7 @@ import socket
 import json
 import struct
 import mediapipe as mp
+import pickle
 
 import cv2
 import numpy as np
@@ -91,6 +92,33 @@ def renderiza_disparo(frame, mis_datos, del_oponente):
     cv2.imshow("Cliente-Juego", frame)
     cv2.waitKey(1)
 
+def recibir_datos_adversario(conn):
+    # Leer exactamente 4 bytes para determinar el tamaño del mensaje
+    raw_msglen = conn.recv(4)
+    if not raw_msglen:
+        return None
+
+    # Desempaquetar el tamaño del mensaje (4 bytes big-endian)
+    msglen = struct.unpack('>I', raw_msglen)[0]
+
+    # Leer los datos completos basados en el tamaño recibido
+    serialized_data = b''
+    while len(serialized_data) < msglen:
+        # Leer en partes hasta completar el tamaño esperado
+        packet = conn.recv(msglen - len(serialized_data))
+        if not packet:
+            raise ConnectionError("La conexión se cerró antes de recibir los datos completos")
+        serialized_data += packet
+
+    # Deserializar el contenido usando pickle
+    data_received = pickle.loads(serialized_data)
+
+    # Extraer frame y mis_datos del diccionario recibido
+    frame = data_received['frame']
+    del_oponente = data_received['datos']
+
+    return frame, del_oponente
+
 # Conexión al servidor
 with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
     cap = cv2.VideoCapture(2)
@@ -113,19 +141,7 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         #frame = np.array(opponent_data["frame"])
 
         #------------------------------------------------
-        raw_msglen = recv_all(s, 4)
-        if not raw_msglen:
-            break
-        msglen = struct.unpack('>I', raw_msglen)[0]
-
-        # Ahora recibimos los bytes del frame
-        frame_data = recv_all(s, msglen)
-        if not frame_data:
-            break
-
-        # Convertimos los bytes en una imagen
-        nparr = np.frombuffer(frame_data, np.uint8)
-        frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+        frame, del_oponente = recibir_datos_adversario(s)
 
         if frame is not None:
             cv2.imshow("Client-Oponente", frame)
@@ -134,8 +150,7 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         #------------------------------------------------
 
         print("Datos recibidos del oponente:")
-        cv2.imshow("Client-Oponente", frameJug)
-        #renderiza_disparo(frameJug, mis_datos, )
+        renderiza_disparo(frameJug, mis_datos, del_oponente)
         #print(opponent_data)
 
 

@@ -8,6 +8,7 @@ import cv2
 import mediapipe as mp
 import numpy as np
 import time
+import pickle
 
 # Configuración del servidor
 HOST = '0.0.0.0'
@@ -121,13 +122,25 @@ def renderiza_disparo(frame, mis_datos, del_oponente):
     cv2.imshow("Servidor-Juego", frame)
     cv2.waitKey(1)
 
-def enviar_datos_adversario(conn, frame):
+
+
+def enviar_datos_adversario(conn, frame, mis_datos):
     try:
         if conn:
             encoded, buffer = cv2.imencode('.jpg', frame)
-            frame_bytes = buffer.tobytes()
-            conn.sendall(struct.pack('>I', len(frame_bytes)) + frame_bytes)
-            #conn.sendall(json.dumps({"msg": "Disparo emitido", "frame":frame.tolist()}).encode())
+            data_to_send = {
+                'frame': frame,
+                'datos': mis_datos
+            }
+
+            # Serializar el diccionario
+            serialized_data = pickle.dumps(data_to_send)
+
+            # Empaquetar el tamaño de los datos y enviar los datos serializados
+            conn.sendall(struct.pack('>I', len(serialized_data)) + serialized_data)
+
+
+           #conn.sendall(json.dumps({"msg": "Disparo emitido", "frame":frame.tolist()}).encode())
         else:
             print("Socket no válido o desconectado.")
     except (BrokenPipeError, OSError) as e:
@@ -147,7 +160,7 @@ if __name__ == "__main__":
         while True:
             # Captura datos locales del jugador 1 (host)
             mis_datos, frame = captura_datos_jugador(cap)
-            enviar_datos_adversario(conn, frame)
+            enviar_datos_adversario(conn, frame, mis_datos)
             #cv2.imshow("Juego", frame)
             #cv2.waitKey(1)
             while player_data[0] is None:
