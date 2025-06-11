@@ -87,7 +87,6 @@ def captura_datos_jugador(cap):
     time_left = max(0, countdown_seconds - int(elapsed))
     cv2.putText(frame, f"Disparo en {time_left}", (30, 60), cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0, 255, 255), 3)
 
-    #if elapsed >= countdown_seconds:
     if results_face.detections:
         bbox = results_face.detections[0].location_data.relative_bounding_box
         cx = int((bbox.xmin + bbox.width / 2) * frame_width)
@@ -115,11 +114,11 @@ def captura_datos_jugador(cap):
 
 def renderiza_disparo(frame, mis_datos, del_oponente):
     #canvas = np.zeros((480, 640, 3), dtype=np.uint8)
-    cv2.circle(frame, (mis_datos['face_x'], mis_datos['face_y']), 30, (255, 255, 255), 2)
-    cv2.circle(frame, (del_oponente['hand_x'], del_oponente['hand_y']), 10, (0, 255, 0), -1)
+    cv2.circle(frame, (mis_datos['face_x'], mis_datos['face_y']), 70, (255, 255, 255), 2)
+    cv2.circle(frame, (del_oponente['hand_x'], del_oponente['hand_y']), 40, (0, 255, 0), -1)
     #cv2.line(canvas, (del_oponente['hand_x'], del_oponente['hand_y']), (mis_datos['face_x'], mis_datos['face_y']), (0, 0, 255), 4)
     #cv2.putText(canvas, "Disparo recibido!", (150, 450), cv2.FONT_HERSHEY_SIMPLEX, 1.2, (0, 255, 255), 3)
-    cv2.imshow("Impacto", frame)
+    cv2.imshow("Servidor-Juego", frame)
     cv2.waitKey(1)
 
 def enviar_datos_adversario(conn, frame):
