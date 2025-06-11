@@ -87,35 +87,40 @@ def captura_datos_jugador(cap):
     time_left = max(0, countdown_seconds - int(elapsed))
     cv2.putText(frame, f"Disparo en {time_left}", (30, 60), cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0, 255, 255), 3)
 
-    if elapsed >= countdown_seconds:
-        if results_face.detections:
-            bbox = results_face.detections[0].location_data.relative_bounding_box
-            cx = int((bbox.xmin + bbox.width / 2) * frame_width)
-            cy = int((bbox.ymin + bbox.height / 2) * frame_height)
-            datos['face_x'] = cx
-            datos['face_y'] = cy
+    #if elapsed >= countdown_seconds:
+    if results_face.detections:
+        bbox = results_face.detections[0].location_data.relative_bounding_box
+        cx = int((bbox.xmin + bbox.width / 2) * frame_width)
+        cy = int((bbox.ymin + bbox.height / 2) * frame_height)
+        datos['face_x'] = cx
+        datos['face_y'] = cy
+    else:
+        datos['face_x'] = 100
+        datos['face_y'] = 100
 
-        if results_hand.multi_hand_landmarks:
-            hand = results_hand.multi_hand_landmarks[0]
-            index = hand.landmark[mp_hands.HandLandmark.INDEX_FINGER_TIP]
-            hand_x = int(index.x * frame_width)
-            hand_y = int(index.y * frame_height)
-            datos['hand_x'] = hand_x
-            datos['hand_y'] = hand_y
+    if results_hand.multi_hand_landmarks:
+        hand = results_hand.multi_hand_landmarks[0]
+        index = hand.landmark[mp_hands.HandLandmark.INDEX_FINGER_TIP]
+        hand_x = int(index.x * frame_width)
+        hand_y = int(index.y * frame_height)
+        datos['hand_x'] = hand_x
+        datos['hand_y'] = hand_y
+    else:
+        datos['hand_x'] = 200
+        datos['hand_y'] = 200
     if time_left == 0:
         start_time = None
     return datos, frame
 
 
 def renderiza_disparo(frame, mis_datos, del_oponente):
-    canvas = np.zeros((480, 640, 3), dtype=np.uint8)
-    cv2.circle(canvas, (mis_datos['face_x'], mis_datos['face_y']), 30, (255, 255, 255), 2)
-    cv2.circle(canvas, (del_oponente['hand_x'], del_oponente['hand_y']), 10, (0, 255, 0), -1)
-    cv2.line(canvas, (del_oponente['hand_x'], del_oponente['hand_y']), (mis_datos['face_x'], mis_datos['face_y']), (0, 0, 255), 4)
-    cv2.putText(canvas, "Disparo recibido!", (150, 450), cv2.FONT_HERSHEY_SIMPLEX, 1.2, (0, 255, 255), 3)
-    cv2.imshow("Impacto", canvas)
-    cv2.waitKey(3000)
-    cv2.destroyAllWindows()
+    #canvas = np.zeros((480, 640, 3), dtype=np.uint8)
+    cv2.circle(frame, (mis_datos['face_x'], mis_datos['face_y']), 30, (255, 255, 255), 2)
+    cv2.circle(frame, (del_oponente['hand_x'], del_oponente['hand_y']), 10, (0, 255, 0), -1)
+    #cv2.line(canvas, (del_oponente['hand_x'], del_oponente['hand_y']), (mis_datos['face_x'], mis_datos['face_y']), (0, 0, 255), 4)
+    #cv2.putText(canvas, "Disparo recibido!", (150, 450), cv2.FONT_HERSHEY_SIMPLEX, 1.2, (0, 255, 255), 3)
+    cv2.imshow("Impacto", frame)
+    cv2.waitKey(1)
 
 def enviar_datos_adversario(conn, frame):
     try:
@@ -148,7 +153,7 @@ if __name__ == "__main__":
             #cv2.waitKey(1)
             while player_data[0] is None:
                 time.sleep(0.1)
-            #renderiza_disparo(frame, mis_datos, player_data[0])
+            renderiza_disparo(frame, mis_datos, player_data[0])
 
     except KeyboardInterrupt:
         print("\nServidor detenido manualmente.")
