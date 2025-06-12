@@ -5,6 +5,7 @@ import mediapipe as mp
 import pickle
 import math
 import cv2
+lifes_left = 10
 
 # Dirección IP del servidor (Jugador 1)
 SERVER_HOST = '127.0.0.1'  # Reemplazar con la IP del host si están en distintas PCs
@@ -21,6 +22,33 @@ hand_radius = 40
 
 start_time = None
 countdown_seconds = 3
+
+def obtener_coordenada_y(frame, posicion):
+    # Obtener altura del frame
+    alto = frame.shape[0]
+    # Determinar la coordenada Y basada en la posición
+    if posicion == 'arriba':
+        return int(alto * 0.1)  # 10% desde la parte superior
+    elif posicion == 'centro':
+        return int(alto * 0.5)  # Centro del eje Y
+    elif posicion == 'abajo':
+        return int(alto * 0.9)  # 10% desde la parte inferior
+    else:
+        raise ValueError("Posición inválida para el eje Y: usa 'arriba', 'centro' o 'abajo'.")
+
+def obtener_coordenada_x(frame, posicion):
+    # Obtener ancho del frame
+    ancho = frame.shape[1]
+
+    # Determinar la coordenada X basada en la posición
+    if posicion == 'izquierda':
+        return int(ancho * 0.1)  # 10% desde la parte izquierda
+    elif posicion == 'centro':
+        return int(ancho * 0.5)  # Centro del eje X
+    elif posicion == 'derecha':
+        return int(ancho * 0.9)  # 10% desde la parte derecha
+    else:
+        raise ValueError("Posición inválida para el eje X: usa 'izquierda', 'centro' o 'derecha'.")
 
 def obtain_time_left():
     global start_time
@@ -49,8 +77,8 @@ def captura_datos_jugador(cap):
         datos['face_x'] = cx
         datos['face_y'] = cy
     else:
-        datos['face_x'] = 500
-        datos['face_y'] = 500
+        datos['face_x'] = obtener_coordenada_x(frame, 'centro')
+        datos['face_y'] = obtener_coordenada_y(frame, 'centro')
 
     if results_hand.multi_hand_landmarks:
         hand = results_hand.multi_hand_landmarks[0]
@@ -60,13 +88,16 @@ def captura_datos_jugador(cap):
         datos['hand_x'] = hand_x
         datos['hand_y'] = hand_y
     else:
-        datos['hand_x'] = 400
-        datos['hand_y'] = 400
+        datos['hand_x'] = obtener_coordenada_x(frame, 'centro')
+        datos['hand_y'] = obtener_coordenada_y(frame, 'abajo')
     return datos, frame
 
 
 def renderiza_disparo(frame, mis_datos, del_oponente):
-    global start_time
+    global start_time, lifes_left
+    msj = "Te quedan " + str(lifes_left) + " vidas"
+    cv2.putText(frame, msj, (10, frame.shape[0] - 10), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2, cv2.LINE_AA)
+
     # canvas = np.zeros((480, 640, 3), dtype=np.uint8)
     cv2.circle(frame, (mis_datos['face_x'], mis_datos['face_y']), face_radius, (255, 255, 255), 2)
     cv2.circle(frame, (del_oponente['hand_x'], del_oponente['hand_y']), hand_radius, (0, 255, 0), -1)
@@ -76,6 +107,7 @@ def renderiza_disparo(frame, mis_datos, del_oponente):
         start_time = None
         if(verificar_superposicion(mis_datos, del_oponente) == True):
             print("disparo acertado")
+            lifes_left = lifes_left - 1
     cv2.imshow("Cliente-Juego", frame)
     cv2.waitKey(1)
 
@@ -146,8 +178,9 @@ def enviar_datos_adversario(conn, frame, mis_datos):
         print(f"Error al enviar datos, el cliente se desconectó: {e}")
 
 
-# Conexión al servidor
-with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+if __name__ == "__main__":
+    # Conexión al servidor
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     cap = cv2.VideoCapture(2)
     s.connect((SERVER_HOST, SERVER_PORT))
     print("Conectado al servidor. Esperando asignación...")

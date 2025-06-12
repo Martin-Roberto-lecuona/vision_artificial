@@ -14,6 +14,8 @@ PORT = 65432
 start_time = None
 face_radius = 120
 hand_radius = 40
+lifes_left = 10
+
 # Inicialización de MediaPipe
 mp_face = mp.solutions.face_detection
 mp_hands = mp.solutions.hands
@@ -23,6 +25,32 @@ hands = mp_hands.Hands(static_image_mode=False, max_num_hands=1, min_detection_c
 # Configuración visual
 target_face_ratio = 0.4  # Porcentaje deseado del alto que debe ocupar el rostro
 countdown_seconds = 3
+def obtener_coordenada_y(frame, posicion):
+    # Obtener altura del frame
+    alto = frame.shape[0]
+    # Determinar la coordenada Y basada en la posición
+    if posicion == 'arriba':
+        return int(alto * 0.1)  # 10% desde la parte superior
+    elif posicion == 'centro':
+        return int(alto * 0.5)  # Centro del eje Y
+    elif posicion == 'abajo':
+        return int(alto * 0.9)  # 10% desde la parte inferior
+    else:
+        raise ValueError("Posición inválida para el eje Y: usa 'arriba', 'centro' o 'abajo'.")
+
+def obtener_coordenada_x(frame, posicion):
+    # Obtener ancho del frame
+    ancho = frame.shape[1]
+
+    # Determinar la coordenada X basada en la posición
+    if posicion == 'izquierda':
+        return int(ancho * 0.1)  # 10% desde la parte izquierda
+    elif posicion == 'centro':
+        return int(ancho * 0.5)  # Centro del eje X
+    elif posicion == 'derecha':
+        return int(ancho * 0.9)  # 10% desde la parte derecha
+    else:
+        raise ValueError("Posición inválida para el eje X: usa 'izquierda', 'centro' o 'derecha'.")
 
 def recibir_datos_adversario(conn):
     # Leer exactamente 4 bytes para determinar el tamaño del mensaje
@@ -85,8 +113,8 @@ def captura_datos_jugador(cap):
         datos['face_x'] = cx
         datos['face_y'] = cy
     else:
-        datos['face_x'] = 100
-        datos['face_y'] = 100
+        datos['face_x'] = obtener_coordenada_x(frame, 'centro')
+        datos['face_y'] = obtener_coordenada_y(frame, 'centro')
 
     if results_hand.multi_hand_landmarks:
         hand = results_hand.multi_hand_landmarks[0]
@@ -96,8 +124,8 @@ def captura_datos_jugador(cap):
         datos['hand_x'] = hand_x
         datos['hand_y'] = hand_y
     else:
-        datos['hand_x'] = 200
-        datos['hand_y'] = 200
+        datos['hand_x'] = obtener_coordenada_x(frame, 'centro')
+        datos['hand_y'] = obtener_coordenada_y(frame, 'arriba')
 
     return datos, frame
 
@@ -116,7 +144,9 @@ def verificar_superposicion(mis_datos, del_oponente):
         return False  # No se superponen
 
 def renderiza_disparo(frame, mis_datos, del_oponente):
-    global start_time
+    global start_time, lifes_left
+    msj = "Te quedan " + str(lifes_left) + " vidas"
+    cv2.putText(frame, msj, (10, frame.shape[0] - 10), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2, cv2.LINE_AA)
     #canvas = np.zeros((480, 640, 3), dtype=np.uint8)
     cv2.circle(frame, (mis_datos['face_x'], mis_datos['face_y']), face_radius, (255, 255, 255), 2)
     cv2.circle(frame, (del_oponente['hand_x'], del_oponente['hand_y']), hand_radius, (0, 255, 0), -1)
@@ -126,6 +156,9 @@ def renderiza_disparo(frame, mis_datos, del_oponente):
         start_time = None
         if(verificar_superposicion(mis_datos, del_oponente) == True):
             print("disparo acertado")
+            lifes_left = lifes_left - 1
+
+
     cv2.imshow("Servidor-Juego", frame)
     cv2.waitKey(1)
 
