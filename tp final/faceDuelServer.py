@@ -2,21 +2,18 @@
 
 import socket
 import struct
-import threading
 import json
 import cv2
 import mediapipe as mp
 import pickle
+import math
 
 # Configuración del servidor
 HOST = '0.0.0.0'
 PORT = 65432
-
-clients = []
-player_data = [None, None]
-lock = threading.Lock()
 start_time = None
-
+face_radius = 120
+hand_radius = 40
 # Inicialización de MediaPipe
 mp_face = mp.solutions.face_detection
 mp_hands = mp.solutions.hands
@@ -56,17 +53,20 @@ def recibir_datos_adversario(conn):
 
 def accept_clients(server_socket):
     print("Esperando jugadores...")
-    while len(clients) < 1:
-        conn, addr = server_socket.accept()
-        print(f"Jugador conectado desde {addr}")
-        clients.append(conn)
-        conn.sendall(json.dumps({"msg": "connected", "player_id": 0}).encode())
-        return conn
+    conn, addr = server_socket.accept()
+    print(f"Jugador conectado desde {addr}")
+    conn.sendall(json.dumps({"msg": "connected", "player_id": 0}).encode())
+    return conn
 
+def obtain_time_left():
+    global start_time
+    if start_time is None:
+        start_time = cv2.getTickCount()
+    elapsed = (cv2.getTickCount() - start_time) / cv2.getTickFrequency()
+    return max(0, countdown_seconds - int(elapsed))
 
 def captura_datos_jugador(cap):
     datos = {}
-    global start_time
 
     ret, frame = cap.read()
 
@@ -75,11 +75,7 @@ def captura_datos_jugador(cap):
     results_hand = hands.process(frame_rgb)
     frame_height, frame_width = frame.shape[:2]
 
-    if start_time is None:
-        start_time = cv2.getTickCount()
-
-    elapsed = (cv2.getTickCount() - start_time) / cv2.getTickFrequency()
-    time_left = max(0, countdown_seconds - int(elapsed))
+    time_left = obtain_time_left()
     cv2.putText(frame, f"Disparo en {time_left}", (30, 60), cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0, 255, 255), 3)
 
     if results_face.detections:
@@ -102,17 +98,34 @@ def captura_datos_jugador(cap):
     else:
         datos['hand_x'] = 200
         datos['hand_y'] = 200
-    if time_left == 0:
-        start_time = None
+
     return datos, frame
 
+def verificar_superposicion(mis_datos, del_oponente):
+    # Obtener coordenadas de los centros
+    x1, y1 = mis_datos['face_x'], mis_datos['face_y']
+    x2, y2 = del_oponente['hand_x'], del_oponente['hand_y']
+
+    # Calcular la distancia euclidiana entre los centros
+    distancia = math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
+
+    # Verificar superposición
+    if distancia <= (face_radius + hand_radius):
+        return True  # Los círculos se superponen
+    else:
+        return False  # No se superponen
 
 def renderiza_disparo(frame, mis_datos, del_oponente):
+    global start_time
     #canvas = np.zeros((480, 640, 3), dtype=np.uint8)
-    cv2.circle(frame, (mis_datos['face_x'], mis_datos['face_y']), 120, (255, 255, 255), 2)
-    cv2.circle(frame, (del_oponente['hand_x'], del_oponente['hand_y']), 40, (0, 255, 0), -1)
+    cv2.circle(frame, (mis_datos['face_x'], mis_datos['face_y']), face_radius, (255, 255, 255), 2)
+    cv2.circle(frame, (del_oponente['hand_x'], del_oponente['hand_y']), hand_radius, (0, 255, 0), -1)
     #cv2.line(canvas, (del_oponente['hand_x'], del_oponente['hand_y']), (mis_datos['face_x'], mis_datos['face_y']), (0, 0, 255), 4)
     #cv2.putText(canvas, "Disparo recibido!", (150, 450), cv2.FONT_HERSHEY_SIMPLEX, 1.2, (0, 255, 255), 3)
+    if(obtain_time_left() == 0):
+        start_time = None
+        if(verificar_superposicion(mis_datos, del_oponente) == True):
+            print("disparo acertado")
     cv2.imshow("Servidor-Juego", frame)
     cv2.waitKey(1)
 
@@ -142,7 +155,6 @@ def enviar_datos_adversario(conn, frame, mis_datos):
 
 
 if __name__ == "__main__":
-
     # Iniciar servidor y aceptar jugador 2
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server_socket.bind((HOST, PORT))
@@ -151,7 +163,6 @@ if __name__ == "__main__":
 
     try:
         conn = accept_clients(server_socket)
-
         while True:
             mis_datos, frameJug = captura_datos_jugador(cap)
             enviar_datos_adversario(conn, frameJug, mis_datos)
@@ -159,11 +170,7 @@ if __name__ == "__main__":
             renderiza_oponente(frame, mis_datos, del_oponente)
             cv2.waitKey(1)
             renderiza_disparo(frameJug, mis_datos, del_oponente)
-
     except KeyboardInterrupt:
         print("\nServidor detenido manualmente.")
     finally:
-        for conn in clients:
-            if conn:
-                conn.close()
         server_socket.close()
