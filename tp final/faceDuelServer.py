@@ -130,8 +130,8 @@ def renderiza_disparo(frame, mis_datos, del_oponente):
     cv2.waitKey(1)
 
 def renderiza_oponente(frame, mis_datos, del_oponente):
-    cv2.circle(frame, (del_oponente['face_x'], del_oponente['face_y']), 120, (255, 255, 255), 2)
-    cv2.circle(frame, (mis_datos['hand_x'], mis_datos['hand_y']), 40, (0, 255, 0), -1)
+    cv2.circle(frame, (del_oponente['face_x'], del_oponente['face_y']), face_radius, (255, 255, 255), 2)
+    cv2.circle(frame, (mis_datos['hand_x'], mis_datos['hand_y']), hand_radius, (0, 255, 0), -1)
     cv2.imshow("Servidor-Oponente", frame)
 
 
