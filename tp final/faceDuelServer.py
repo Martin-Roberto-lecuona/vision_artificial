@@ -6,8 +6,6 @@ import threading
 import json
 import cv2
 import mediapipe as mp
-import numpy as np
-import time
 import pickle
 
 # Configuración del servidor
@@ -29,34 +27,32 @@ hands = mp_hands.Hands(static_image_mode=False, max_num_hands=1, min_detection_c
 target_face_ratio = 0.4  # Porcentaje deseado del alto que debe ocupar el rostro
 countdown_seconds = 3
 
-def handle_client(conn, player_id):
-    global player_data
-    conn.sendall(json.dumps({"msg": "connected", "player_id": player_id}).encode())
+def recibir_datos_adversario(conn):
+    # Leer exactamente 4 bytes para determinar el tamaño del mensaje
+    raw_msglen = conn.recv(4)
+    if not raw_msglen:
+        return None
 
-    while True:
-        try:
-            data = conn.recv(4096)
-            if not data:
-                break
+    # Desempaquetar el tamaño del mensaje (4 bytes big-endian)
+    msglen = struct.unpack('>I', raw_msglen)[0]
 
-            decoded = json.loads(data.decode())
-            with lock:
-                player_data[player_id] = decoded
+    # Leer los datos completos basados en el tamaño recibido
+    serialized_data = b''
+    while len(serialized_data) < msglen:
+        # Leer en partes hasta completar el tamaño esperado
+        packet = conn.recv(msglen - len(serialized_data))
+        if not packet:
+            raise ConnectionError("La conexión se cerró antes de recibir los datos completos")
+        serialized_data += packet
 
-            with lock:
-                if all(player_data):
-                    opponent_id = 1 - player_id
-                    opponent_data = player_data[opponent_id]
-                    conn.sendall(json.dumps({"opponent_data": opponent_data}).encode())
-                    player_data = [None, None]
+    # Deserializar el contenido usando pickle
+    data_received = pickle.loads(serialized_data)
 
-        except Exception as e:
-            print(f"Error en cliente {player_id}: {e}")
-            break
+    # Extraer frame y mis_datos del diccionario recibido
+    frame = data_received['frame']
+    del_oponente = data_received['datos']
 
-    conn.close()
-    with lock:
-        clients[player_id] = None
+    return frame, del_oponente
 
 def accept_clients(server_socket):
     print("Esperando jugadores...")
@@ -64,7 +60,7 @@ def accept_clients(server_socket):
         conn, addr = server_socket.accept()
         print(f"Jugador conectado desde {addr}")
         clients.append(conn)
-        threading.Thread(target=handle_client, args=(conn, 0)).start()
+        conn.sendall(json.dumps({"msg": "connected", "player_id": 0}).encode())
         return conn
 
 
@@ -73,8 +69,6 @@ def captura_datos_jugador(cap):
     global start_time
 
     ret, frame = cap.read()
-    #if not ret:
-    #    continue
 
     frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
     results_face = face_detection.process(frame_rgb)
@@ -115,19 +109,22 @@ def captura_datos_jugador(cap):
 
 def renderiza_disparo(frame, mis_datos, del_oponente):
     #canvas = np.zeros((480, 640, 3), dtype=np.uint8)
-    cv2.circle(frame, (mis_datos['face_x'], mis_datos['face_y']), 70, (255, 255, 255), 2)
+    cv2.circle(frame, (mis_datos['face_x'], mis_datos['face_y']), 120, (255, 255, 255), 2)
     cv2.circle(frame, (del_oponente['hand_x'], del_oponente['hand_y']), 40, (0, 255, 0), -1)
     #cv2.line(canvas, (del_oponente['hand_x'], del_oponente['hand_y']), (mis_datos['face_x'], mis_datos['face_y']), (0, 0, 255), 4)
     #cv2.putText(canvas, "Disparo recibido!", (150, 450), cv2.FONT_HERSHEY_SIMPLEX, 1.2, (0, 255, 255), 3)
     cv2.imshow("Servidor-Juego", frame)
     cv2.waitKey(1)
 
+def renderiza_oponente(frame, mis_datos, del_oponente):
+    cv2.circle(frame, (del_oponente['face_x'], del_oponente['face_y']), 120, (255, 255, 255), 2)
+    cv2.circle(frame, (mis_datos['hand_x'], mis_datos['hand_y']), 40, (0, 255, 0), -1)
+    cv2.imshow("Servidor-Oponente", frame)
 
 
 def enviar_datos_adversario(conn, frame, mis_datos):
     try:
         if conn:
-            encoded, buffer = cv2.imencode('.jpg', frame)
             data_to_send = {
                 'frame': frame,
                 'datos': mis_datos
@@ -138,13 +135,11 @@ def enviar_datos_adversario(conn, frame, mis_datos):
 
             # Empaquetar el tamaño de los datos y enviar los datos serializados
             conn.sendall(struct.pack('>I', len(serialized_data)) + serialized_data)
-
-
-           #conn.sendall(json.dumps({"msg": "Disparo emitido", "frame":frame.tolist()}).encode())
         else:
             print("Socket no válido o desconectado.")
     except (BrokenPipeError, OSError) as e:
         print(f"Error al enviar datos, el cliente se desconectó: {e}")
+
 
 if __name__ == "__main__":
 
@@ -158,14 +153,12 @@ if __name__ == "__main__":
         conn = accept_clients(server_socket)
 
         while True:
-            # Captura datos locales del jugador 1 (host)
-            mis_datos, frame = captura_datos_jugador(cap)
-            enviar_datos_adversario(conn, frame, mis_datos)
-            #cv2.imshow("Juego", frame)
-            #cv2.waitKey(1)
-            while player_data[0] is None:
-                time.sleep(0.1)
-            renderiza_disparo(frame, mis_datos, player_data[0])
+            mis_datos, frameJug = captura_datos_jugador(cap)
+            enviar_datos_adversario(conn, frameJug, mis_datos)
+            frame, del_oponente = recibir_datos_adversario(conn)
+            renderiza_oponente(frame, mis_datos, del_oponente)
+            cv2.waitKey(1)
+            renderiza_disparo(frameJug, mis_datos, del_oponente)
 
     except KeyboardInterrupt:
         print("\nServidor detenido manualmente.")

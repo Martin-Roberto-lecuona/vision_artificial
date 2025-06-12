@@ -5,7 +5,6 @@ import mediapipe as mp
 import pickle
 
 import cv2
-import numpy as np
 
 # Dirección IP del servidor (Jugador 1)
 SERVER_HOST = '127.0.0.1'  # Reemplazar con la IP del host si están en distintas PCs
@@ -17,24 +16,15 @@ mp_hands = mp.solutions.hands
 face_detection = mp_face.FaceDetection(model_selection=1, min_detection_confidence=0.7)
 hands = mp_hands.Hands(static_image_mode=False, max_num_hands=1, min_detection_confidence=0.7)
 
-# Datos de ejemplo para enviar (simulan coordenadas del disparo y de la cara)
-
-my_data = {
-    "hand_x": 120,
-    "hand_y": 200,
-    "face_x": 300,
-    "face_y": 250
-}
 start_time = None
 countdown_seconds = 3
+
 
 def captura_datos_jugador(cap):
     datos = {}
     global start_time
 
     ret, frame = cap.read()
-    #if not ret:
-    #    continue
 
     frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
     results_face = face_detection.process(frame_rgb)
@@ -48,7 +38,6 @@ def captura_datos_jugador(cap):
     time_left = max(0, countdown_seconds - int(elapsed))
     cv2.putText(frame, f"Disparo en {time_left}", (30, 60), cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0, 255, 255), 3)
 
-    #if elapsed >= countdown_seconds:
     if results_face.detections:
         bbox = results_face.detections[0].location_data.relative_bounding_box
         cx = int((bbox.xmin + bbox.width / 2) * frame_width)
@@ -73,24 +62,22 @@ def captura_datos_jugador(cap):
         start_time = None
     return datos, frame
 
-def recv_all(sock, count):
-    """Recibe exactamente `count` bytes del socket"""
-    buf = b''
-    while len(buf) < count:
-        newbuf = sock.recv(count - len(buf))
-        if not newbuf:
-            return None
-        buf += newbuf
-    return buf
 
 def renderiza_disparo(frame, mis_datos, del_oponente):
-    #canvas = np.zeros((480, 640, 3), dtype=np.uint8)
-    cv2.circle(frame, (mis_datos['face_x'], mis_datos['face_y']), 70, (255, 255, 255), 2)
+    # canvas = np.zeros((480, 640, 3), dtype=np.uint8)
+    cv2.circle(frame, (mis_datos['face_x'], mis_datos['face_y']), 120, (255, 255, 255), 2)
     cv2.circle(frame, (del_oponente['hand_x'], del_oponente['hand_y']), 40, (0, 255, 0), -1)
-    #cv2.line(canvas, (del_oponente['hand_x'], del_oponente['hand_y']), (mis_datos['face_x'], mis_datos['face_y']), (0, 0, 255), 4)
-    #cv2.putText(canvas, "Disparo recibido!", (150, 450), cv2.FONT_HERSHEY_SIMPLEX, 1.2, (0, 255, 255), 3)
+    # cv2.line(canvas, (del_oponente['hand_x'], del_oponente['hand_y']), (mis_datos['face_x'], mis_datos['face_y']), (0, 0, 255), 4)
+    # cv2.putText(canvas, "Disparo recibido!", (150, 450), cv2.FONT_HERSHEY_SIMPLEX, 1.2, (0, 255, 255), 3)
     cv2.imshow("Cliente-Juego", frame)
     cv2.waitKey(1)
+
+
+def renderiza_oponente(frame, mis_datos, del_oponente):
+    cv2.circle(frame, (del_oponente['face_x'], del_oponente['face_y']), 120, (255, 255, 255), 2)
+    cv2.circle(frame, (mis_datos['hand_x'], mis_datos['hand_y']), 40, (0, 255, 0), -1)
+    cv2.imshow("Cliente-Oponente", frame)
+
 
 def recibir_datos_adversario(conn):
     # Leer exactamente 4 bytes para determinar el tamaño del mensaje
@@ -119,6 +106,26 @@ def recibir_datos_adversario(conn):
 
     return frame, del_oponente
 
+
+def enviar_datos_adversario(conn, frame, mis_datos):
+    try:
+        if conn:
+            data_to_send = {
+                'frame': frame,
+                'datos': mis_datos
+            }
+
+            # Serializar el diccionario
+            serialized_data = pickle.dumps(data_to_send)
+
+            # Empaquetar el tamaño de los datos y enviar los datos serializados
+            conn.sendall(struct.pack('>I', len(serialized_data)) + serialized_data)
+        else:
+            print("Socket no válido o desconectado.")
+    except (BrokenPipeError, OSError) as e:
+        print(f"Error al enviar datos, el cliente se desconectó: {e}")
+
+
 # Conexión al servidor
 with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
     cap = cv2.VideoCapture(2)
@@ -132,25 +139,10 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
     while True:
         mis_datos, frameJug = captura_datos_jugador(cap)
         # Enviar datos locales
-        s.sendall(json.dumps(mis_datos).encode())
+        enviar_datos_adversario(s, frameJug, mis_datos)
         print("Datos enviados. Esperando datos del oponente...")
-
-        # Recibir datos del oponente
-        #data = s.recv(6000000)
-        #opponent_data = json.loads(data.decode())
-        #frame = np.array(opponent_data["frame"])
-
-        #------------------------------------------------
         frame, del_oponente = recibir_datos_adversario(s)
-
-        if frame is not None:
-            cv2.imshow("Client-Oponente", frame)
-            if cv2.waitKey(1) & 0xFF == ord('q'):
-                break
-        #------------------------------------------------
+        renderiza_oponente(frame, mis_datos, del_oponente)
 
         print("Datos recibidos del oponente:")
         renderiza_disparo(frameJug, mis_datos, del_oponente)
-        #print(opponent_data)
-
-
