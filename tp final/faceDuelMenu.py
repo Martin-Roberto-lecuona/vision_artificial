@@ -1,11 +1,20 @@
 import os
+import platform
 import threading
 
+current_os = platform.system()
+
 def iniciar_servidor():
-    os.system('start cmd /k "python faceDuelServer.py"')
+    if current_os == "Windows":
+        os.system('start cmd /k "python faceDuelServer.py"')
+    elif current_os == "Linux":
+        os.system(f'gnome-terminal -- bash -c python3 faceDuelServer.py; exec bash"')
 
 def iniciar_cliente():
-    os.system('start cmd /k "python faceDuelClient.py"')
+    if current_os == "Windows":
+        os.system('start cmd /k "python faceDuelClient.py"')
+    elif current_os == "Linux":
+        os.system(f'gnome-terminal -- bash -c python3 faceDuelClient.py; exec bash"')
 
 CREAR_UNIR = input("¿Crear o unirse? (C/U): ").strip().upper()
 
