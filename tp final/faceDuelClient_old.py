@@ -23,7 +23,8 @@ hand_radius = 40
 lifes_left = 10
 beat_frames_jugador = 0  # Frames restantes para el efecto de latido
 beat_frames_oponente = 0
-
+default_face = False
+oponent_default_face = False
 start_time = None
 countdown_seconds = 3
 
@@ -62,6 +63,7 @@ def obtain_time_left():
     return max(0, countdown_seconds - int(elapsed))
 
 def captura_datos_jugador(cap):
+    global default_face
     datos = {}
 
     ret, frame = cap.read()
@@ -81,9 +83,11 @@ def captura_datos_jugador(cap):
         cy = int((bbox.ymin + bbox.height / 2) * frame_height)
         datos['face_x'] = cx
         datos['face_y'] = cy
+        default_face = False
     else:
         datos['face_x'] = obtener_coordenada_x(frame, 'centro')
         datos['face_y'] = obtener_coordenada_y(frame, 'centro')
+        default_face = True
 
     if results_hand.multi_hand_landmarks:
         hand = results_hand.multi_hand_landmarks[0]
@@ -107,15 +111,17 @@ def aplicar_latido(frame, beat_frames_var, alpha=0.4, color=(0, 0, 255)):
     return beat_frames_var
 
 def renderiza_frames(frame_oponente, frame_jugador, mis_datos, del_oponente):
-    global start_time, lifes_left, beat_frames_jugador, beat_frames_oponente
+    global start_time, lifes_left, beat_frames_jugador, beat_frames_oponente, default_face
 
-    cv2.circle(frame_oponente, (del_oponente['face_x'], del_oponente['face_y']), face_radius, (255, 255, 255), 2)
+    if(oponent_default_face == True):
+        cv2.circle(frame_oponente, (del_oponente['face_x'], del_oponente['face_y']), face_radius, (255, 255, 255), 2)
     cv2.circle(frame_oponente, (mis_datos['hand_x'], mis_datos['hand_y']), hand_radius, (0, 255, 0), -1)
 
     msj = "Te quedan " + str(lifes_left) + " vidas"
     cv2.putText(frame_jugador, msj, (10, frame_jugador.shape[0] - 10), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2, cv2.LINE_AA)
 
-    cv2.circle(frame_jugador, (mis_datos['face_x'], mis_datos['face_y']), face_radius, (255, 255, 255), 2)
+    if(default_face == True):
+        cv2.circle(frame_jugador, (mis_datos['face_x'], mis_datos['face_y']), face_radius, (255, 255, 255), 2)
     cv2.circle(frame_jugador, (del_oponente['hand_x'], del_oponente['hand_y']), hand_radius, (0, 255, 0), -1)
     # Efecto de latido rojo si corresponde
     beat_frames_jugador = aplicar_latido(frame_jugador, beat_frames_jugador)
@@ -149,6 +155,7 @@ def verificar_superposicion(mis_datos, del_oponente):
         return False  # No se superponen
 
 def recibir_datos_adversario(conn):
+    global oponent_default_face
     # Leer exactamente 4 bytes para determinar el tamaño del mensaje
     raw_msglen = conn.recv(4)
     if not raw_msglen:
@@ -172,16 +179,19 @@ def recibir_datos_adversario(conn):
     # Extraer frame y mis_datos del diccionario recibido
     frame = data_received['frame']
     del_oponente = data_received['datos']
+    oponent_default_face = data_received['default_face']
 
     return frame, del_oponente
 
 
 def enviar_datos_adversario(conn, frame, mis_datos):
+    global default_face
     try:
         if conn:
             data_to_send = {
                 'frame': frame,
-                'datos': mis_datos
+                'datos': mis_datos,
+                'default_face': default_face,
             }
 
             # Serializar el diccionario
