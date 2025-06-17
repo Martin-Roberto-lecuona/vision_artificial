@@ -7,7 +7,6 @@ import pickle
 import math
 import cv2
 import numpy as np
-lifes_left = 10
 
 # Dirección IP del servidor (Jugador 1)
 SERVER_HOST = '127.0.0.1'  # Reemplazar con la IP del host si están en distintas PCs
@@ -21,6 +20,9 @@ hands = mp_hands.Hands(static_image_mode=False, max_num_hands=1, min_detection_c
 
 face_radius = 120
 hand_radius = 40
+lifes_left = 10
+beat_frames_jugador = 0  # Frames restantes para el efecto de latido
+beat_frames_oponente = 0
 
 start_time = None
 countdown_seconds = 3
@@ -95,8 +97,17 @@ def captura_datos_jugador(cap):
         datos['hand_y'] = obtener_coordenada_y(frame, 'abajo')
     return datos, frame
 
+def aplicar_latido(frame, beat_frames_var, alpha=0.4, color=(0, 0, 255)):
+    """Aplica un overlay de latido rojo (o color elegido) si beat_frames_var > 0."""
+    if beat_frames_var > 0:
+        overlay = frame.copy()
+        cv2.rectangle(overlay, (0, 0), (frame.shape[1], frame.shape[0]), color, -1)
+        cv2.addWeighted(overlay, alpha, frame, 1 - alpha, 0, frame)
+        beat_frames_var -= 1
+    return beat_frames_var
+
 def renderiza_frames(frame_oponente, frame_jugador, mis_datos, del_oponente):
-    global start_time, lifes_left
+    global start_time, lifes_left, beat_frames_jugador, beat_frames_oponente
 
     cv2.circle(frame_oponente, (del_oponente['face_x'], del_oponente['face_y']), face_radius, (255, 255, 255), 2)
     cv2.circle(frame_oponente, (mis_datos['hand_x'], mis_datos['hand_y']), hand_radius, (0, 255, 0), -1)
@@ -104,16 +115,19 @@ def renderiza_frames(frame_oponente, frame_jugador, mis_datos, del_oponente):
     msj = "Te quedan " + str(lifes_left) + " vidas"
     cv2.putText(frame_jugador, msj, (10, frame_jugador.shape[0] - 10), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2, cv2.LINE_AA)
 
-    # canvas = np.zeros((480, 640, 3), dtype=np.uint8)
     cv2.circle(frame_jugador, (mis_datos['face_x'], mis_datos['face_y']), face_radius, (255, 255, 255), 2)
     cv2.circle(frame_jugador, (del_oponente['hand_x'], del_oponente['hand_y']), hand_radius, (0, 255, 0), -1)
-    # cv2.line(canvas, (del_oponente['hand_x'], del_oponente['hand_y']), (mis_datos['face_x'], mis_datos['face_y']), (0, 0, 255), 4)
-    # cv2.putText(canvas, "Disparo recibido!", (150, 450), cv2.FONT_HERSHEY_SIMPLEX, 1.2, (0, 255, 255), 3)
+    # Efecto de latido rojo si corresponde
+    beat_frames_jugador = aplicar_latido(frame_jugador, beat_frames_jugador)
+    beat_frames_oponente = aplicar_latido(frame_oponente, beat_frames_oponente)
     if(obtain_time_left() == 0):
         start_time = None
         if(verificar_superposicion(mis_datos, del_oponente) == True):
             print("disparo acertado")
             lifes_left = lifes_left - 1
+            beat_frames_jugador = 5  # Activa el efecto de latido por 5 frames
+        if(verificar_superposicion(del_oponente, mis_datos) == True):
+            beat_frames_oponente = 5  # Activa el efecto de latido por 5 frames
 
     combinada = np.hstack((frame_oponente, frame_jugador))
 
