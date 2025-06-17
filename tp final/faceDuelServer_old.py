@@ -7,6 +7,7 @@ import cv2
 import mediapipe as mp
 import pickle
 import math
+import numpy as np
 
 # Configuración del servidor
 HOST = '0.0.0.0'
@@ -97,6 +98,7 @@ def captura_datos_jugador(cap):
     datos = {}
 
     ret, frame = cap.read()
+    frame = cv2.flip(frame, 1)
 
     frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
     results_face = face_detection.process(frame_rgb)
@@ -143,30 +145,31 @@ def verificar_superposicion(mis_datos, del_oponente):
     else:
         return False  # No se superponen
 
-def renderiza_disparo(frame, mis_datos, del_oponente):
+def renderiza_frames(frame_oponente, frame_jugador, mis_datos, del_oponente):
     global start_time, lifes_left
+
+    cv2.circle(frame_oponente, (del_oponente['face_x'], del_oponente['face_y']), face_radius, (255, 255, 255), 2)
+    cv2.circle(frame_oponente, (mis_datos['hand_x'], mis_datos['hand_y']), hand_radius, (0, 255, 0), -1)
+
+
     msj = "Te quedan " + str(lifes_left) + " vidas"
-    cv2.putText(frame, msj, (10, frame.shape[0] - 10), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2, cv2.LINE_AA)
-    #canvas = np.zeros((480, 640, 3), dtype=np.uint8)
-    cv2.circle(frame, (mis_datos['face_x'], mis_datos['face_y']), face_radius, (255, 255, 255), 2)
-    cv2.circle(frame, (del_oponente['hand_x'], del_oponente['hand_y']), hand_radius, (0, 255, 0), -1)
-    #cv2.line(canvas, (del_oponente['hand_x'], del_oponente['hand_y']), (mis_datos['face_x'], mis_datos['face_y']), (0, 0, 255), 4)
-    #cv2.putText(canvas, "Disparo recibido!", (150, 450), cv2.FONT_HERSHEY_SIMPLEX, 1.2, (0, 255, 255), 3)
+    cv2.putText(frame_jugador, msj, (10, frame_jugador.shape[0] - 10), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2, cv2.LINE_AA)
+
+    # canvas = np.zeros((480, 640, 3), dtype=np.uint8)
+    cv2.circle(frame_jugador, (mis_datos['face_x'], mis_datos['face_y']), face_radius, (255, 255, 255), 2)
+    cv2.circle(frame_jugador, (del_oponente['hand_x'], del_oponente['hand_y']), hand_radius, (0, 255, 0), -1)
+    # cv2.line(canvas, (del_oponente['hand_x'], del_oponente['hand_y']), (mis_datos['face_x'], mis_datos['face_y']), (0, 0, 255), 4)
+    # cv2.putText(canvas, "Disparo recibido!", (150, 450), cv2.FONT_HERSHEY_SIMPLEX, 1.2, (0, 255, 255), 3)
     if(obtain_time_left() == 0):
         start_time = None
         if(verificar_superposicion(mis_datos, del_oponente) == True):
             print("disparo acertado")
             lifes_left = lifes_left - 1
 
+    combinada = np.hstack((frame_oponente, frame_jugador))
 
-    cv2.imshow("Servidor-Juego", frame)
+    cv2.imshow("Juego cliente", combinada)
     cv2.waitKey(1)
-
-def renderiza_oponente(frame, mis_datos, del_oponente):
-    cv2.circle(frame, (del_oponente['face_x'], del_oponente['face_y']), face_radius, (255, 255, 255), 2)
-    cv2.circle(frame, (mis_datos['hand_x'], mis_datos['hand_y']), hand_radius, (0, 255, 0), -1)
-    cv2.imshow("Servidor-Oponente", frame)
-
 
 def enviar_datos_adversario(conn, frame, mis_datos):
     try:
@@ -197,12 +200,10 @@ if __name__ == "__main__":
     try:
         conn = accept_clients(server_socket)
         while True:
-            mis_datos, frameJug = captura_datos_jugador(cap)
-            enviar_datos_adversario(conn, frameJug, mis_datos)
-            frame, del_oponente = recibir_datos_adversario(conn)
-            renderiza_oponente(frame, mis_datos, del_oponente)
-            cv2.waitKey(1)
-            renderiza_disparo(frameJug, mis_datos, del_oponente)
+            mis_datos, frame_jugador = captura_datos_jugador(cap)
+            enviar_datos_adversario(conn, frame_jugador, mis_datos)
+            frame_oponente, del_oponente = recibir_datos_adversario(conn)
+            renderiza_frames(frame_oponente, frame_jugador, mis_datos, del_oponente)
     except KeyboardInterrupt:
         print("\nServidor detenido manualmente.")
     finally:

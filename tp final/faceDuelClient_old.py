@@ -6,6 +6,7 @@ import mediapipe as mp
 import pickle
 import math
 import cv2
+import numpy as np
 lifes_left = 10
 
 # Dirección IP del servidor (Jugador 1)
@@ -62,6 +63,7 @@ def captura_datos_jugador(cap):
     datos = {}
 
     ret, frame = cap.read()
+    frame = cv2.flip(frame, 1)
 
     frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
     results_face = face_detection.process(frame_rgb)
@@ -93,15 +95,18 @@ def captura_datos_jugador(cap):
         datos['hand_y'] = obtener_coordenada_y(frame, 'abajo')
     return datos, frame
 
-
-def renderiza_disparo(frame, mis_datos, del_oponente):
+def renderiza_frames(frame_oponente, frame_jugador, mis_datos, del_oponente):
     global start_time, lifes_left
+
+    cv2.circle(frame_oponente, (del_oponente['face_x'], del_oponente['face_y']), face_radius, (255, 255, 255), 2)
+    cv2.circle(frame_oponente, (mis_datos['hand_x'], mis_datos['hand_y']), hand_radius, (0, 255, 0), -1)
+
     msj = "Te quedan " + str(lifes_left) + " vidas"
-    cv2.putText(frame, msj, (10, frame.shape[0] - 10), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2, cv2.LINE_AA)
+    cv2.putText(frame_jugador, msj, (10, frame_jugador.shape[0] - 10), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2, cv2.LINE_AA)
 
     # canvas = np.zeros((480, 640, 3), dtype=np.uint8)
-    cv2.circle(frame, (mis_datos['face_x'], mis_datos['face_y']), face_radius, (255, 255, 255), 2)
-    cv2.circle(frame, (del_oponente['hand_x'], del_oponente['hand_y']), hand_radius, (0, 255, 0), -1)
+    cv2.circle(frame_jugador, (mis_datos['face_x'], mis_datos['face_y']), face_radius, (255, 255, 255), 2)
+    cv2.circle(frame_jugador, (del_oponente['hand_x'], del_oponente['hand_y']), hand_radius, (0, 255, 0), -1)
     # cv2.line(canvas, (del_oponente['hand_x'], del_oponente['hand_y']), (mis_datos['face_x'], mis_datos['face_y']), (0, 0, 255), 4)
     # cv2.putText(canvas, "Disparo recibido!", (150, 450), cv2.FONT_HERSHEY_SIMPLEX, 1.2, (0, 255, 255), 3)
     if(obtain_time_left() == 0):
@@ -109,14 +114,11 @@ def renderiza_disparo(frame, mis_datos, del_oponente):
         if(verificar_superposicion(mis_datos, del_oponente) == True):
             print("disparo acertado")
             lifes_left = lifes_left - 1
-    cv2.imshow("Cliente-Juego", frame)
+
+    combinada = np.hstack((frame_oponente, frame_jugador))
+
+    cv2.imshow("Juego cliente", combinada)
     cv2.waitKey(1)
-
-
-def renderiza_oponente(frame, mis_datos, del_oponente):
-    cv2.circle(frame, (del_oponente['face_x'], del_oponente['face_y']), face_radius, (255, 255, 255), 2)
-    cv2.circle(frame, (mis_datos['hand_x'], mis_datos['hand_y']), hand_radius, (0, 255, 0), -1)
-    cv2.imshow("Cliente-Oponente", frame)
 
 def verificar_superposicion(mis_datos, del_oponente):
     # Obtener coordenadas de los centros
@@ -182,7 +184,7 @@ def enviar_datos_adversario(conn, frame, mis_datos):
 if __name__ == "__main__":
     # Conexión al servidor
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    cap = cv2.VideoCapture(1)
+    cap = cv2.VideoCapture(2)
     s.connect((SERVER_HOST, SERVER_PORT))
     print("Conectado al servidor. Esperando asignación...")
 
@@ -191,12 +193,9 @@ if __name__ == "__main__":
     init_info = json.loads(init_data.decode())
     print(f"Asignado como Jugador {init_info['player_id']}")
     while True:
-        mis_datos, frameJug = captura_datos_jugador(cap)
+        mis_datos, frame_jugador = captura_datos_jugador(cap)
         # Enviar datos locales
-        enviar_datos_adversario(s, frameJug, mis_datos)
+        enviar_datos_adversario(s, frame_jugador, mis_datos)
         #print("Datos enviados. Esperando datos del oponente...")
-        frame, del_oponente = recibir_datos_adversario(s)
-        renderiza_oponente(frame, mis_datos, del_oponente)
-
-        #print("Datos recibidos del oponente:")
-        renderiza_disparo(frameJug, mis_datos, del_oponente)
+        frame_oponente, del_oponente = recibir_datos_adversario(s)
+        renderiza_frames(frame_oponente, frame_jugador, mis_datos, del_oponente)
