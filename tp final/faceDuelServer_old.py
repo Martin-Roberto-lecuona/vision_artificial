@@ -100,7 +100,7 @@ def obtain_time_left():
     elapsed = (cv2.getTickCount() - start_time) / cv2.getTickFrequency()
     return max(0, countdown_seconds - int(elapsed))
 
-def captura_datos_jugador(cap):
+def captura_datos_jugador(cap, last_hand_x, last_hand_y):
     global default_face
     datos = {}
 
@@ -135,8 +135,10 @@ def captura_datos_jugador(cap):
         datos['hand_x'] = hand_x
         datos['hand_y'] = hand_y
     else:
-        datos['hand_x'] = obtener_coordenada_x(frame, 'centro')
-        datos['hand_y'] = obtener_coordenada_y(frame, 'arriba')
+        #datos['hand_x'] = obtener_coordenada_x(frame, 'centro')
+        #datos['hand_y'] = obtener_coordenada_y(frame, 'arriba')
+        datos['hand_x'] = last_hand_x
+        datos['hand_y'] = last_hand_y
 
     return datos, frame
 
@@ -220,7 +222,9 @@ if __name__ == "__main__":
     server_socket.bind((HOST, PORT))
     server_socket.listen(2)
     cap = cv2.VideoCapture(0)
-
+    mis_datos = {}
+    mis_datos['hand_x'] = 100
+    mis_datos['hand_y'] = 100
     try:
         conn = accept_clients(server_socket)
         #Limitamos la cantidad de frames para mejorar el rendimiento
@@ -229,7 +233,7 @@ if __name__ == "__main__":
             frame_count += 1
             if frame_count % 3 != 0:
                 continue  # Saltar este frame para reducir la carga
-            mis_datos, frame_jugador = captura_datos_jugador(cap)
+            mis_datos, frame_jugador = captura_datos_jugador(cap, mis_datos['hand_x'], mis_datos['hand_y'])
             enviar_datos_adversario(conn, frame_jugador, mis_datos)
             frame_oponente, del_oponente = recibir_datos_adversario(conn)
             renderiza_frames(frame_oponente, frame_jugador, mis_datos, del_oponente)

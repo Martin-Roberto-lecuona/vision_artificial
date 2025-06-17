@@ -62,7 +62,7 @@ def obtain_time_left():
     elapsed = (cv2.getTickCount() - start_time) / cv2.getTickFrequency()
     return max(0, countdown_seconds - int(elapsed))
 
-def captura_datos_jugador(cap):
+def captura_datos_jugador(cap, last_hand_x, last_hand_y):
     global default_face
     datos = {}
 
@@ -99,6 +99,8 @@ def captura_datos_jugador(cap):
     else:
         datos['hand_x'] = obtener_coordenada_x(frame, 'centro')
         datos['hand_y'] = obtener_coordenada_y(frame, 'abajo')
+        datos['hand_x'] = last_hand_x
+        datos['hand_y'] = last_hand_y
     return datos, frame
 
 def aplicar_latido(frame, beat_frames_var, alpha=0.4, color=(0, 0, 255)):
@@ -218,11 +220,14 @@ if __name__ == "__main__":
     print(f"Asignado como Jugador {init_info['player_id']}")
     #Limitamos la cantidad de frames para mejorar el rendimiento
     frame_count = 0  # Contador de frames
+    mis_datos = {}
+    mis_datos['hand_x'] = 100
+    mis_datos['hand_y'] = 100
     while True:
         frame_count += 1
         if frame_count % 3 != 0:
             continue  # Saltar este frame para reducir la carga
-        mis_datos, frame_jugador = captura_datos_jugador(cap)
+        mis_datos, frame_jugador = captura_datos_jugador(cap, mis_datos['hand_x'], mis_datos['hand_y'])
         # Enviar datos locales
         enviar_datos_adversario(s, frame_jugador, mis_datos)
         #print("Datos enviados. Esperando datos del oponente...")
