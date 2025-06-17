@@ -199,7 +199,12 @@ if __name__ == "__main__":
 
     try:
         conn = accept_clients(server_socket)
+        #Limitamos la cantidad de frames para mejorar el rendimiento
+        frame_count = 0  # Contador de frames
         while True:
+            frame_count += 1
+            if frame_count % 3 != 0:
+                continue  # Saltar este frame para reducir la carga
             mis_datos, frame_jugador = captura_datos_jugador(cap)
             enviar_datos_adversario(conn, frame_jugador, mis_datos)
             frame_oponente, del_oponente = recibir_datos_adversario(conn)

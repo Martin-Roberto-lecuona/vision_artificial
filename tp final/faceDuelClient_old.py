@@ -192,7 +192,12 @@ if __name__ == "__main__":
     init_data = s.recv(1024)
     init_info = json.loads(init_data.decode())
     print(f"Asignado como Jugador {init_info['player_id']}")
+    #Limitamos la cantidad de frames para mejorar el rendimiento
+    frame_count = 0  # Contador de frames
     while True:
+        frame_count += 1
+        if frame_count % 3 != 0:
+            continue  # Saltar este frame para reducir la carga
         mis_datos, frame_jugador = captura_datos_jugador(cap)
         # Enviar datos locales
         enviar_datos_adversario(s, frame_jugador, mis_datos)
