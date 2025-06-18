@@ -7,6 +7,7 @@ import pickle
 import math
 import cv2
 import numpy as np
+import time
 
 # Dirección IP del servidor (Jugador 1)
 SERVER_HOST = '127.0.0.1'  # Reemplazar con la IP del host si están en distintas PCs
@@ -64,6 +65,7 @@ def obtain_time_left():
 
 def captura_datos_jugador(cap, last_hand_x, last_hand_y, last_face_x, last_face_y):
     global default_face
+    global last_face_image, last_face_time
     datos = {}
 
     ret, frame = cap.read()
@@ -77,6 +79,8 @@ def captura_datos_jugador(cap, last_hand_x, last_hand_y, last_face_x, last_face_
     time_left = obtain_time_left()
     cv2.putText(frame, f"Disparo en {time_left}", (30, 60), cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0, 255, 255), 3)
 
+    current_time = time.time()
+    face_detected = False
     if results_face.detections:
         bbox = results_face.detections[0].location_data.relative_bounding_box
         cx = int((bbox.xmin + bbox.width / 2) * frame_width)
@@ -84,9 +88,16 @@ def captura_datos_jugador(cap, last_hand_x, last_hand_y, last_face_x, last_face_
         datos['face_x'] = cx
         datos['face_y'] = cy
         default_face = False
+        face_detected = True
+        # Guardar la imagen de la cara cada 5 segundos
+        if (last_face_time is None) or (current_time - last_face_time > 5):
+            x1 = max(int(bbox.xmin * frame_width), 0)
+            y1 = max(int(bbox.ymin * frame_height), 0)
+            x2 = min(int((bbox.xmin + bbox.width) * frame_width), frame_width)
+            y2 = min(int((bbox.ymin + bbox.height) * frame_height), frame_height)
+            last_face_image = frame[y1:y2, x1:x2].copy()
+            last_face_time = current_time
     else:
-        #datos['face_x'] = obtener_coordenada_x(frame, 'centro')
-        #datos['face_y'] = obtener_coordenada_y(frame, 'centro')
         datos['face_x'] = last_face_x
         datos['face_y'] = last_face_y
         default_face = True
@@ -99,11 +110,13 @@ def captura_datos_jugador(cap, last_hand_x, last_hand_y, last_face_x, last_face_
         datos['hand_x'] = hand_x
         datos['hand_y'] = hand_y
     else:
-        #datos['hand_x'] = obtener_coordenada_x(frame, 'centro')
-        #datos['hand_y'] = obtener_coordenada_y(frame, 'abajo')
         datos['hand_x'] = last_hand_x
         datos['hand_y'] = last_hand_y
     return datos, frame
+
+# Variables globales para la última imagen de la cara y el tiempo
+last_face_image = None
+last_face_time = None
 
 def aplicar_latido(frame, beat_frames_var, alpha=0.4, color=(0, 0, 255)):
     """Aplica un overlay de latido rojo (o color elegido) si beat_frames_var > 0."""
@@ -132,16 +145,17 @@ def dibujar_diana_sobre_frame(frame, x, y, radio_max):
 
 def renderiza_frames(frame_oponente, frame_jugador, mis_datos, del_oponente):
     global start_time, lifes_left, beat_frames_jugador, beat_frames_oponente, default_face
-
-    if(oponent_default_face == True):
-        cv2.circle(frame_oponente, (del_oponente['face_x'], del_oponente['face_y']), face_radius, (255, 255, 255), 2)
+    global last_face_image
+    #if(oponent_default_face == True):
+    #    cv2.circle(frame_oponente, (del_oponente['face_x'], del_oponente['face_y']), face_radius, (255, 255, 255), 2)
     #cv2.circle(frame_oponente, (mis_datos['hand_x'], mis_datos['hand_y']), hand_radius, (0, 255, 0), -1)
     dibujar_diana_sobre_frame(frame_oponente, mis_datos['hand_x'], mis_datos['hand_y'], hand_radius)
     msj = "Te quedan " + str(lifes_left) + " vidas"
     cv2.putText(frame_jugador, msj, (10, frame_jugador.shape[0] - 10), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2, cv2.LINE_AA)
 
-    if(default_face == True):
-        cv2.circle(frame_jugador, (mis_datos['face_x'], mis_datos['face_y']), face_radius, (255, 255, 255), 2)
+    #if(default_face == True):
+    #    cv2.circle(frame_jugador, (mis_datos['face_x'], mis_datos['face_y']), face_radius, (255, 255, 255), 2)
+
     cv2.circle(frame_jugador, (del_oponente['hand_x'], del_oponente['hand_y']), hand_radius, (0, 255, 0), -1)
     dibujar_diana_sobre_frame(frame_jugador, del_oponente['hand_x'], del_oponente['hand_y'], hand_radius)
 
@@ -226,6 +240,18 @@ def enviar_datos_adversario(conn, frame, mis_datos):
     except (BrokenPipeError, OSError) as e:
         print(f"Error al enviar datos, el cliente se desconectó: {e}")
 
+def use_default_face(frame_jugador):
+    if default_face and last_face_image is not None:
+        # Si no se detecta la cara, mostrar la última imagen guardada en la ubicación estimada
+        h, w, _ = last_face_image.shape
+        x = int(mis_datos['face_x'] - w // 2)
+        y = int(mis_datos['face_y'] - h // 2)
+        # Asegurarse de que la imagen no se salga del frame
+        x = max(0, min(x, frame_jugador.shape[1] - w))
+        y = max(0, min(y, frame_jugador.shape[0] - h))
+        frame_jugador[y:y + h, x:x + w] = last_face_image
+    return frame_jugador
+
 
 if __name__ == "__main__":
     # Conexión al servidor
@@ -250,6 +276,7 @@ if __name__ == "__main__":
         if frame_count % 3 != 0:
             continue  # Saltar este frame para reducir la carga
         mis_datos, frame_jugador = captura_datos_jugador(cap, mis_datos['hand_x'], mis_datos['hand_y'], mis_datos['face_x'], mis_datos['face_y'])
+        frame_jugador = use_default_face(frame_jugador)
         # Enviar datos locales
         enviar_datos_adversario(s, frame_jugador, mis_datos)
         #print("Datos enviados. Esperando datos del oponente...")
