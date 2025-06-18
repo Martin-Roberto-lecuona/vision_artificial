@@ -171,9 +171,9 @@ def renderiza_frames(frame_oponente, frame_jugador, mis_datos, del_oponente):
         if(verificar_superposicion(del_oponente, mis_datos) == True):
             beat_frames_oponente = 5  # Activa el efecto de latido por 5 frames
 
-    combinada = np.hstack((frame_oponente, frame_jugador))
+    # combinada = np.hstack((frame_oponente, frame_jugador))
 
-    cv2.imshow("Juego cliente", combinada)
+    cv2.imshow("Juego cliente", frame_oponente)
     cv2.waitKey(1)
 
 def verificar_superposicion(mis_datos, del_oponente):
