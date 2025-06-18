@@ -167,19 +167,38 @@ def aplicar_latido(frame, beat_frames_var, alpha=0.4, color=(0, 0, 255)):
         beat_frames_var -= 1
     return beat_frames_var
 
+def dibujar_diana_sobre_frame(frame, x, y, radio_max):
+    colores = [(0, 0, 255), (255, 255, 255)]  # rojo y blanco
+    num_circulos = 5
+    radios = [int(radio_max * (1 - i / num_circulos)) for i in range(num_circulos)]
+
+    for i, radio in enumerate(radios):
+        color = colores[i % 2]  # alternar rojo/blanco
+        cv2.circle(frame, (x, y), radio, color, thickness=-1)
+
+    # (Opcional) Cruz central
+    cruz_size = radio_max // 5
+    cv2.line(frame, (x - cruz_size, y), (x + cruz_size, y), (0, 0, 0), 2)
+    cv2.line(frame, (x, y - cruz_size), (x, y + cruz_size), (0, 0, 0), 2)
+
+    return frame
+
 def renderiza_frames(frame_oponente, frame_jugador, mis_datos, del_oponente):
     global start_time, lifes_left, beat_frames_jugador, beat_frames_oponente, default_face, oponent_default_face
 
     if(oponent_default_face == True):
         cv2.circle(frame_oponente, (del_oponente['face_x'], del_oponente['face_y']), face_radius, (255, 255, 255), 2)
-    cv2.circle(frame_oponente, (mis_datos['hand_x'], mis_datos['hand_y']), hand_radius, (0, 255, 0), -1)
+    #cv2.circle(frame_oponente, (mis_datos['hand_x'], mis_datos['hand_y']), hand_radius, (0, 255, 0), -1)
+    dibujar_diana_sobre_frame(frame_oponente, mis_datos['hand_x'], mis_datos['hand_y'], hand_radius)
 
     msj = "Te quedan " + str(lifes_left) + " vidas"
     cv2.putText(frame_jugador, msj, (10, frame_jugador.shape[0] - 10), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2, cv2.LINE_AA)
 
     if(default_face == True):
         cv2.circle(frame_jugador, (mis_datos['face_x'], mis_datos['face_y']), face_radius, (255, 255, 255), 2)
-    cv2.circle(frame_jugador, (del_oponente['hand_x'], del_oponente['hand_y']), hand_radius, (0, 255, 0), -1)
+    #cv2.circle(frame_jugador, (del_oponente['hand_x'], del_oponente['hand_y']), hand_radius, (0, 255, 0), -1)
+    dibujar_diana_sobre_frame(frame_jugador, del_oponente['hand_x'], del_oponente['hand_y'], hand_radius)
+
     beat_frames_jugador = aplicar_latido(frame_jugador, beat_frames_jugador)
     beat_frames_oponente = aplicar_latido(frame_oponente, beat_frames_oponente)
     if(obtain_time_left() == 0):
