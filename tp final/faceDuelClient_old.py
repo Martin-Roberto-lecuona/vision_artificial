@@ -17,7 +17,9 @@ import time
 # poner sonido de 3 2 1 disparo
 # pausar 2 segundos el juego al disparar 
 # No mostrar diana en tu frame para no saber donde apunta el enemigo 
-
+# al finalizar el juego mostrar quien ha ganado y quien ha perdido
+# permitir reanudar el juego cuando termina.
+# verificar si los relojes estan sincronizados en red
 
 # Dirección IP del servidor (Jugador 1)
 SERVER_HOST = '127.0.0.1'  # Reemplazar con la IP del host si están en distintas PCs
