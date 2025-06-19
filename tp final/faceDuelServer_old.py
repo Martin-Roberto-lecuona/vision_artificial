@@ -228,7 +228,8 @@ def renderiza_frames(frame_oponente, frame_jugador, mis_datos, del_oponente):
 
     # combinada = np.hstack((frame_oponente, frame_jugador))
 
-    cv2.imshow("Juego servidor", frame_oponente)
+    cv2.imshow("frame_oponente", frame_oponente)
+    cv2.imshow("frame_jugador", frame_jugador)
     cv2.waitKey(1)
 
 def enviar_datos_adversario(conn, frame, mis_datos):

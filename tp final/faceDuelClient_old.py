@@ -10,8 +10,8 @@ import numpy as np
 import time
 
 # Dirección IP del servidor (Jugador 1)
-SERVER_HOST = '127.0.0.1'  # Reemplazar con la IP del host si están en distintas PCs
-SERVER_PORT = 65432
+SERVER_HOST = '25.51.127.102'  # Reemplazar con la IP del host si están en distintas PCs
+SERVER_PORT = 65431
 
 # Inicialización de MediaPipe
 mp_face = mp.solutions.face_detection
@@ -173,7 +173,8 @@ def renderiza_frames(frame_oponente, frame_jugador, mis_datos, del_oponente):
 
     # combinada = np.hstack((frame_oponente, frame_jugador))
 
-    cv2.imshow("Juego cliente", frame_oponente)
+    cv2.imshow("frame_oponente", frame_oponente)
+    cv2.imshow("frame_jugador", frame_jugador)
     cv2.waitKey(1)
 
 def verificar_superposicion(mis_datos, del_oponente):
@@ -193,6 +194,7 @@ def verificar_superposicion(mis_datos, del_oponente):
 def recibir_datos_adversario(conn):
     global oponent_default_face
     # Leer exactamente 4 bytes para determinar el tamaño del mensaje
+    print("Esperando recibir datos del adversario...")
     raw_msglen = conn.recv(4)
     if not raw_msglen:
         return None
@@ -256,7 +258,7 @@ def use_default_face(frame_jugador):
 if __name__ == "__main__":
     # Conexión al servidor
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    cap = cv2.VideoCapture(2)
+    cap = cv2.VideoCapture(1)
     s.connect((SERVER_HOST, SERVER_PORT))
     print("Conectado al servidor. Esperando asignación...")
 
