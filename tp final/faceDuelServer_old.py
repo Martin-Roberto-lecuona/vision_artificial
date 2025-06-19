@@ -230,8 +230,9 @@ def renderiza_frames(frame_oponente, frame_jugador, mis_datos, del_oponente):
 
     # combinada = np.hstack((frame_oponente, frame_jugador))
 
-    cv2.imshow("frame_oponente", frame_oponente)
-    cv2.imshow("frame_jugador", frame_jugador)
+    cv2.imshow("servidor_oponente", frame_oponente)
+    cv2.waitKey(1)
+    cv2.imshow("servidor_jugador", frame_jugador)
     cv2.waitKey(1)
 
 def enviar_datos_adversario(conn, frame, mis_datos):
@@ -257,15 +258,17 @@ def enviar_datos_adversario(conn, frame, mis_datos):
 
 
 def use_default_face(frame_jugador):
+    global last_face_image
     if default_face and last_face_image is not None:
         # Si no se detecta la cara, mostrar la última imagen guardada en la ubicación estimada
-        h, w, _ = last_face_image.shape
-        x = int(mis_datos['face_x'] - w // 2)
-        y = int(mis_datos['face_y'] - h // 2)
+        size = 2 * face_radius
+        resized_face = cv2.resize(last_face_image, (size, size))
+        x = int(mis_datos['face_x'] - size // 2)
+        y = int(mis_datos['face_y'] - size // 2)
         # Asegurarse de que la imagen no se salga del frame
-        x = max(0, min(x, frame_jugador.shape[1] - w))
-        y = max(0, min(y, frame_jugador.shape[0] - h))
-        frame_jugador[y:y + h, x:x + w] = last_face_image
+        x = max(0, min(x, frame_jugador.shape[1] - size))
+        y = max(0, min(y, frame_jugador.shape[0] - size))
+        frame_jugador[y:y + size, x:x + size] = resized_face
     return frame_jugador
 
 if __name__ == "__main__":

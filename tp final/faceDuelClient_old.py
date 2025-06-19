@@ -20,7 +20,7 @@ import time
 
 
 # Dirección IP del servidor (Jugador 1)
-SERVER_HOST = '26.119.155.222'  # Reemplazar con la IP del host si están en distintas PCs
+SERVER_HOST = '127.0.0.1'  # Reemplazar con la IP del host si están en distintas PCs
 SERVER_PORT = 65432
 
 # Inicialización de MediaPipe
@@ -163,9 +163,6 @@ def renderiza_frames(frame_oponente, frame_jugador, mis_datos, del_oponente):
     msj = "Te quedan " + str(lifes_left) + " vidas"
     cv2.putText(frame_jugador, msj, (10, frame_jugador.shape[0] - 10), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2, cv2.LINE_AA)
 
-    #if(default_face == True):
-    #    cv2.circle(frame_jugador, (mis_datos['face_x'], mis_datos['face_y']), face_radius, (255, 255, 255), 2)
-
     cv2.circle(frame_jugador, (del_oponente['hand_x'], del_oponente['hand_y']), hand_radius, (0, 255, 0), -1)
     dibujar_diana_sobre_frame(frame_jugador, del_oponente['hand_x'], del_oponente['hand_y'], hand_radius)
 
@@ -183,8 +180,9 @@ def renderiza_frames(frame_oponente, frame_jugador, mis_datos, del_oponente):
 
     # combinada = np.hstack((frame_oponente, frame_jugador))
 
-    cv2.imshow("frame_oponente", frame_oponente)
-    cv2.imshow("frame_jugador", frame_jugador)
+    cv2.imshow("cliente_oponente", frame_oponente)
+    cv2.waitKey(1)
+    cv2.imshow("cliente_jugador", frame_jugador)
     cv2.waitKey(1)
 
 def verificar_superposicion(mis_datos, del_oponente):
@@ -255,22 +253,24 @@ def enviar_datos_adversario(conn, frame, mis_datos):
         print(f"Error al enviar datos, el cliente se desconectó: {e}")
 
 def use_default_face(frame_jugador):
+    global last_face_image
     if default_face and last_face_image is not None:
         # Si no se detecta la cara, mostrar la última imagen guardada en la ubicación estimada
-        h, w, _ = last_face_image.shape
-        x = int(mis_datos['face_x'] - w // 2)
-        y = int(mis_datos['face_y'] - h // 2)
+        size = 2 * face_radius
+        resized_face = cv2.resize(last_face_image, (size, size))
+        x = int(mis_datos['face_x'] - size // 2)
+        y = int(mis_datos['face_y'] - size // 2)
         # Asegurarse de que la imagen no se salga del frame
-        x = max(0, min(x, frame_jugador.shape[1] - w))
-        y = max(0, min(y, frame_jugador.shape[0] - h))
-        frame_jugador[y:y + h, x:x + w] = last_face_image
+        x = max(0, min(x, frame_jugador.shape[1] - size))
+        y = max(0, min(y, frame_jugador.shape[0] - size))
+        frame_jugador[y:y + size, x:x + size] = resized_face
     return frame_jugador
 
 
 if __name__ == "__main__":
     # Conexión al servidor
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    cap = cv2.VideoCapture(1)
+    cap = cv2.VideoCapture(2)
     s.connect((SERVER_HOST, SERVER_PORT))
     print("Conectado al servidor. Esperando asignación...")
 
