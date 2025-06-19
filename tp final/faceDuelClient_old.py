@@ -10,8 +10,8 @@ import numpy as np
 import time
 
 # Dirección IP del servidor (Jugador 1)
-SERVER_HOST = '25.51.127.102'  # Reemplazar con la IP del host si están en distintas PCs
-SERVER_PORT = 65431
+SERVER_HOST = '26.119.155.222'  # Reemplazar con la IP del host si están en distintas PCs
+SERVER_PORT = 65432
 
 # Inicialización de MediaPipe
 mp_face = mp.solutions.face_detection
@@ -194,7 +194,6 @@ def verificar_superposicion(mis_datos, del_oponente):
 def recibir_datos_adversario(conn):
     global oponent_default_face
     # Leer exactamente 4 bytes para determinar el tamaño del mensaje
-    print("Esperando recibir datos del adversario...")
     raw_msglen = conn.recv(4)
     if not raw_msglen:
         return None
@@ -213,9 +212,11 @@ def recibir_datos_adversario(conn):
 
     # Deserializar el contenido usando pickle
     data_received = pickle.loads(serialized_data)
+    np_frame = np.frombuffer(data_received['frame'], dtype=np.uint8)
+    frame = cv2.imdecode(np_frame, cv2.IMREAD_COLOR)
 
     # Extraer frame y mis_datos del diccionario recibido
-    frame = data_received['frame']
+    # frame = data_received['frame']
     del_oponente = data_received['datos']
     oponent_default_face = data_received['default_face']
 
@@ -225,9 +226,10 @@ def recibir_datos_adversario(conn):
 def enviar_datos_adversario(conn, frame, mis_datos):
     global default_face
     try:
+        _, buffer = cv2.imencode('.jpg', frame, [int(cv2.IMWRITE_JPEG_QUALITY), 70])
         if conn:
             data_to_send = {
-                'frame': frame,
+                'frame': buffer.tobytes(),
                 'datos': mis_datos,
                 'default_face': default_face,
             }
@@ -275,8 +277,8 @@ if __name__ == "__main__":
     mis_datos['face_y'] = 100
     while True:
         frame_count += 1
-        if frame_count % 3 != 0:
-            continue  # Saltar este frame para reducir la carga
+        # if frame_count % 3 != 0:
+        #     continue  # Saltar este frame para reducir la carga
         mis_datos, frame_jugador = captura_datos_jugador(cap, mis_datos['hand_x'], mis_datos['hand_y'], mis_datos['face_x'], mis_datos['face_y'])
         frame_jugador = use_default_face(frame_jugador)
         # Enviar datos locales

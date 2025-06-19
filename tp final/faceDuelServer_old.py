@@ -79,9 +79,11 @@ def recibir_datos_adversario(conn):
 
     # Deserializar el contenido usando pickle
     data_received = pickle.loads(serialized_data)
+    np_frame = np.frombuffer(data_received['frame'], dtype=np.uint8)
+    frame = cv2.imdecode(np_frame, cv2.IMREAD_COLOR)
 
     # Extraer frame y mis_datos del diccionario recibido
-    frame = data_received['frame']
+    # frame = data_received['frame']
     del_oponente = data_received['datos']
     oponent_default_face = data_received['default_face']
 
@@ -235,9 +237,10 @@ def renderiza_frames(frame_oponente, frame_jugador, mis_datos, del_oponente):
 def enviar_datos_adversario(conn, frame, mis_datos):
     global default_face
     try:
+        _, buffer = cv2.imencode('.jpg', frame, [int(cv2.IMWRITE_JPEG_QUALITY), 70])
         if conn:
             data_to_send = {
-                'frame': frame,
+                'frame': buffer.tobytes(),
                 'datos': mis_datos,
                 'default_face': default_face
             }
@@ -282,8 +285,8 @@ if __name__ == "__main__":
         frame_count = 0  # Contador de frames
         while True:
             frame_count += 1
-            if frame_count % 3 != 0:
-                continue  # Saltar este frame para reducir la carga
+            # if frame_count % 3 != 0:
+            #     continue  # Saltar este frame para reducir la carga
             mis_datos, frame_jugador = captura_datos_jugador(cap, mis_datos['hand_x'], mis_datos['hand_y'], mis_datos['face_x'], mis_datos['face_y'])
             frame_jugador = use_default_face(frame_jugador)
             enviar_datos_adversario(conn, frame_jugador, mis_datos)
