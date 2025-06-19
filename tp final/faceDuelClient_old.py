@@ -9,6 +9,16 @@ import cv2
 import numpy as np
 import time
 
+# TAREAS:
+# Mejorara apagado de juego o salidad de juego
+# liberar recursos. importante puerto
+# usar menu de seleccion de crear o unirse
+# poner pistola en mano
+# poner sonido de 3 2 1 disparo
+# pausar 2 segundos el juego al disparar 
+# No mostrar diana en tu frame para no saber donde apunta el enemigo 
+
+
 # Dirección IP del servidor (Jugador 1)
 SERVER_HOST = '26.119.155.222'  # Reemplazar con la IP del host si están en distintas PCs
 SERVER_PORT = 65432
