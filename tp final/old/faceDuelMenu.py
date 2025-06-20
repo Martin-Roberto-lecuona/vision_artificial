@@ -6,9 +6,9 @@ current_os = platform.system()
 
 def iniciar_servidor():
     if current_os == "Windows":
-        os.system('start cmd /k "python faceDuelServer_old.py"')
+        os.system('start cmd /k "python faceDuel_Unificado.py"')
     elif current_os == "Linux":
-        os.system(f'gnome-terminal -- bash -c "python3 faceDuelServer_old.py; exec bash"')
+        os.system(f'gnome-terminal -- bash -c "python3 faceDuel_Unificado.py; exec bash"')
 
 def iniciar_cliente():
     if current_os == "Windows":
