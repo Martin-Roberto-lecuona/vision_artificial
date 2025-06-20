@@ -1,8 +1,20 @@
-# faceduel_server_client.py - Juego completo con captura y sincronización
+# TAREAS:
+# Mejorara apagado de juego o salidad de juego
+# liberar recursos. importante puerto
+# usar menu de seleccion de crear o unirse
+# poner pistola en mano
+# poner sonido de 3 2 1 disparo
+# pausar 2 segundos el juego al disparar
+# No mostrar diana en tu frame para no saber donde apunta el enemigo
+# al finalizar el juego mostrar quien ha ganado y quien ha perdido
+# permitir reanudar el juego cuando termina.
+# verificar si los relojes estan sincronizados en red
 
 import socket
 import struct
 import json
+import sys
+
 import cv2
 import mediapipe as mp
 import pickle
@@ -20,6 +32,8 @@ hand_radius = 40
 lifes_left = 10
 beat_frames_jugador = 0  # Frames restantes para el efecto de latido
 beat_frames_oponente = 0
+last_face_image = None
+last_face_time = None
 default_face = False
 oponent_default_face = False
 rol = 'Servidor'
@@ -28,10 +42,11 @@ mp_face = mp.solutions.face_detection
 mp_hands = mp.solutions.hands
 face_detection = mp_face.FaceDetection(model_selection=1, min_detection_confidence=0.7)
 hands = mp_hands.Hands(static_image_mode=False, max_num_hands=1, min_detection_confidence=0.7)
-
+first_frame = 1
 # Configuración visual
 target_face_ratio = 0.4  # Porcentaje deseado del alto que debe ocupar el rostro
 countdown_seconds = 3
+
 def obtener_coordenada_y(frame, posicion):
     # Obtener altura del frame
     alto = frame.shape[0]
@@ -84,11 +99,10 @@ def recibir_datos_adversario(conn):
     frame = cv2.imdecode(np_frame, cv2.IMREAD_COLOR)
 
     # Extraer frame y mis_datos del diccionario recibido
-    # frame = data_received['frame']
     del_oponente = data_received['datos']
     oponent_default_face = data_received['default_face']
-
-    return frame, del_oponente
+    derrota_oponente = data_received['derrota']
+    return frame, del_oponente, derrota_oponente
 
 def accept_clients(server_socket):
     print("Esperando jugadores...")
@@ -105,7 +119,7 @@ def obtain_time_left():
     return max(0, countdown_seconds - int(elapsed))
 
 def captura_datos_jugador(cap, last_hand_x, last_hand_y, last_face_x, last_face_y):
-    global default_face
+    global default_face, first_frame
     global last_face_image, last_face_time
     datos = {}
 
@@ -157,10 +171,6 @@ def captura_datos_jugador(cap, last_hand_x, last_hand_y, last_face_x, last_face_
 
     return datos, frame
 
-# Variables globales para la última imagen de la cara y el tiempo
-last_face_image = None
-last_face_time = None
-
 def verificar_superposicion(mis_datos, del_oponente):
     # Obtener coordenadas de los centros
     x1, y1 = mis_datos['face_x'], mis_datos['face_y']
@@ -202,41 +212,58 @@ def dibujar_diana_sobre_frame(frame, x, y, radio_max):
 
 def renderiza_frames(frame_oponente, frame_jugador, mis_datos, del_oponente):
     global start_time, lifes_left, beat_frames_jugador, beat_frames_oponente, default_face, oponent_default_face, rol
-
-    #if(oponent_default_face == True):
-    #    cv2.circle(frame_oponente, (del_oponente['face_x'], del_oponente['face_y']), face_radius, (255, 255, 255), 2)
-    #cv2.circle(frame_oponente, (mis_datos['hand_x'], mis_datos['hand_y']), hand_radius, (0, 255, 0), -1)
+    global first_frame
     dibujar_diana_sobre_frame(frame_oponente, mis_datos['hand_x'], mis_datos['hand_y'], hand_radius)
 
     msj = "Te quedan " + str(lifes_left) + " vidas"
     cv2.putText(frame_jugador, msj, (10, frame_jugador.shape[0] - 10), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2, cv2.LINE_AA)
 
-    #if(default_face == True):
-        #cv2.circle(frame_jugador, (mis_datos['face_x'], mis_datos['face_y']), face_radius, (255, 255, 255), 2)
-    #cv2.circle(frame_jugador, (del_oponente['hand_x'], del_oponente['hand_y']), hand_radius, (0, 255, 0), -1)
     dibujar_diana_sobre_frame(frame_jugador, del_oponente['hand_x'], del_oponente['hand_y'], hand_radius)
-        #ACA VA
 
     beat_frames_jugador = aplicar_latido(frame_jugador, beat_frames_jugador)
     beat_frames_oponente = aplicar_latido(frame_oponente, beat_frames_oponente)
     if(obtain_time_left() == 0):
         start_time = None
         if(verificar_superposicion(mis_datos, del_oponente) == True):
-            print("disparo acertado")
             lifes_left = lifes_left - 1
             beat_frames_jugador = 5  # Activa el efecto de latido por 5 frames
         if(verificar_superposicion(del_oponente, mis_datos) == True):
             beat_frames_oponente = 5  # Activa el efecto de latido por 5 frames
-
-
+        if(lifes_left == 0):
+            return 1
     # combinada = np.hstack((frame_oponente, frame_jugador))
 
     cv2.imshow(rol + "_oponente", frame_oponente)
     cv2.waitKey(1)
     cv2.imshow(rol + "_jugador", frame_jugador)
+    if(first_frame):
+        first_frame = 0
+        if(rol == 'Servidor'):
+            cv2.moveWindow(rol + "_jugador", 1000, 100)
+        else:
+            cv2.moveWindow(rol + "_jugador", 1000, 700)
     cv2.waitKey(1)
 
-def enviar_datos_adversario(conn, frame, mis_datos):
+
+def mostrar_derrota():
+    cv2.destroyAllWindows()
+    derrota_img = np.zeros((300, 600, 3), dtype=np.uint8)
+    cv2.putText(derrota_img, "Derrota", (120, 180), cv2.FONT_HERSHEY_SIMPLEX, 3, (0, 0, 255), 8, cv2.LINE_AA)
+    cv2.imshow("Fin del juego", derrota_img)
+    cv2.waitKey(10000)
+    cv2.destroyAllWindows()
+    sys.exit()
+
+def mostrar_victoria():
+    cv2.destroyAllWindows()
+    victoria_img = np.zeros((300, 600, 3), dtype=np.uint8)
+    cv2.putText(victoria_img, "Victoria", (100, 180), cv2.FONT_HERSHEY_SIMPLEX, 3, (0, 255, 0), 8, cv2.LINE_AA)
+    cv2.imshow("Fin del juego", victoria_img)
+    cv2.waitKey(10000)
+    cv2.destroyAllWindows()
+    sys.exit()
+
+def enviar_datos_adversario(conn, frame, mis_datos, derrota = 0):
     global default_face
     try:
         _, buffer = cv2.imencode('.jpg', frame, [int(cv2.IMWRITE_JPEG_QUALITY), 70])
@@ -244,7 +271,8 @@ def enviar_datos_adversario(conn, frame, mis_datos):
             data_to_send = {
                 'frame': buffer.tobytes(),
                 'datos': mis_datos,
-                'default_face': default_face
+                'default_face': default_face,
+                'derrota': derrota
             }
 
             # Serializar el diccionario
@@ -308,8 +336,13 @@ if __name__ == "__main__":
             mis_datos, frame_jugador = captura_datos_jugador(cap, mis_datos['hand_x'], mis_datos['hand_y'], mis_datos['face_x'], mis_datos['face_y'])
             frame_jugador = use_default_face(frame_jugador)
             enviar_datos_adversario(conn, frame_jugador, mis_datos)
-            frame_oponente, del_oponente = recibir_datos_adversario(conn)
-            renderiza_frames(frame_oponente, frame_jugador, mis_datos, del_oponente)
+            frame_oponente, del_oponente, derrota_oponente = recibir_datos_adversario(conn)
+            if(derrota_oponente == 1):
+                mostrar_victoria()
+            derrota = renderiza_frames(frame_oponente, frame_jugador, mis_datos, del_oponente)
+            if(derrota == 1):
+                enviar_datos_adversario(conn, frame_jugador, mis_datos, 1)
+                mostrar_derrota()
     except KeyboardInterrupt:
         print("\nServidor detenido manualmente.")
     finally:
