@@ -26,7 +26,7 @@ import numpy as np
 import time
 
 from playsound import playsound
-import beepy as beep
+#import beepy as beep
 # Configuración del servidor
 SERVER_HOST = '0.0.0.0'
 CLIENT_HOST = '127.0.0.1'
@@ -317,7 +317,7 @@ def enviar_datos_adversario(conn, frame, mis_datos, derrota = 0):
         print(f"Error al enviar datos, el cliente se desconectó: {e}")
 
 
-def use_default_face(frame_jugador):
+def use_default_face(frame_jugador, mis_datos):
     global last_face_image
     if default_face and last_face_image is not None:
         # Si no se detecta la cara, mostrar la última imagen guardada en la ubicación estimada
@@ -386,7 +386,7 @@ def main():
         init_info = json.loads(init_data.decode())
         print(f"Asignado como Jugador {init_info['player_id']}")
         conn = server_socket
-        cap = cv2.VideoCapture(1)
+        cap = cv2.VideoCapture(2)
     mis_datos = {}
     mis_datos['hand_x'] = 100
     mis_datos['hand_y'] = 100
@@ -411,7 +411,7 @@ def main():
                 frame_count = 0
                 continue  
             mis_datos, frame_jugador = captura_datos_jugador(cap, mis_datos['hand_x'], mis_datos['hand_y'], mis_datos['face_x'], mis_datos['face_y'])
-            frame_jugador = use_default_face(frame_jugador)
+            frame_jugador = use_default_face(frame_jugador, mis_datos)
             enviar_datos_adversario(conn, frame_jugador, mis_datos)
             frame_oponente, del_oponente, derrota_oponente = recibir_datos_adversario(conn)
             if(derrota_oponente == 1):
