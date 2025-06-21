@@ -1,14 +1,17 @@
 # TAREAS:
-# Mejorara apagado de juego o salidad de juego
-# liberar recursos. importante puerto
-# usar menu de seleccion de crear o unirse
-# poner pistola en mano
-# poner sonido de 3 2 1 disparo
-# pausar 2 segundos el juego al disparar
-# No mostrar diana en tu frame para no saber donde apunta el enemigo
-# al finalizar el juego mostrar quien ha ganado y quien ha perdido
-# permitir reanudar el juego cuando termina.
-# verificar si los relojes estan sincronizados en red
+# TESTING:
+    # verificar si los relojes estan sincronizados en red
+    # permitir reanudar el juego cuando termina.
+    # poner pistola en mano
+    # poner sonido de 3 2 1 disparo
+# DONE
+    # al finalizar el juego mostrar quien ha ganado y quien ha perdido
+    # No mostrar diana en tu frame para no saber donde apunta el enemigo
+    # pausar 2 segundos el juego al disparar
+    # liberar recursos. importante puerto
+    # Mejorara apagado de juego o salidad de juego
+    # usar menu de seleccion de crear o unirse
+
 
 import socket
 import struct
@@ -22,6 +25,8 @@ import math
 import numpy as np
 import time
 
+from playsound import playsound
+import beepy as beep
 # Configuración del servidor
 SERVER_HOST = '0.0.0.0'
 CLIENT_HOST = '127.0.0.1'
@@ -46,6 +51,20 @@ first_frame = 1
 # Configuración visual
 target_face_ratio = 0.4  # Porcentaje deseado del alto que debe ocupar el rostro
 countdown_seconds = 3
+# pistola_img = cv2.imread("pistola.png", cv2.IMREAD_UNCHANGED)
+
+def superponer_pistola(frame, x, y, pistola_img):
+    # h, w = pistola_img.shape[:2]
+    # y -= int(h * 0.5)   # Ajuste vertical hacia arriba
+    # x -= int(w * 0.3)   # Ajuste horizontal hacia la izquierda (depende de orientación del PNG)
+    
+    # y = max(0, min(y, frame.shape[0] - h))
+    # x = max(0, min(x, frame.shape[1] - w))
+
+    # alpha = pistola_img[:, :, 3] / 255.0
+    # for c in range(3):
+    #     frame[y:y+h, x:x+w, c] = frame[y:y+h, x:x+w, c] * (1 - alpha) + pistola_img[:, :, c] * alpha
+    return frame
 
 def obtener_coordenada_y(frame, posicion):
     # Obtener altura del frame
@@ -118,6 +137,13 @@ def obtain_time_left():
     elapsed = (cv2.getTickCount() - start_time) / cv2.getTickFrequency()
     return max(0, countdown_seconds - int(elapsed))
 
+def reproducir_cuenta_regresiva(i):
+    # anda mal en windows. 
+    if i < 0:
+        playsound("beep.mp3")
+    elif i == 0:
+        playsound("disparo.mp3")
+
 def captura_datos_jugador(cap, last_hand_x, last_hand_y, last_face_x, last_face_y):
     global default_face, first_frame
     global last_face_image, last_face_time
@@ -133,6 +159,7 @@ def captura_datos_jugador(cap, last_hand_x, last_hand_y, last_face_x, last_face_
 
     time_left = obtain_time_left()
     cv2.putText(frame, f"Disparo en {time_left}", (30, 60), cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0, 255, 255), 3)
+    reproducir_cuenta_regresiva(time_left)
 
     current_time = time.time()
     face_detected = False
@@ -213,7 +240,7 @@ def dibujar_diana_sobre_frame(frame, x, y, radio_max):
 def renderiza_frames(frame_oponente, frame_jugador, mis_datos, del_oponente):
     global start_time, lifes_left, beat_frames_jugador, beat_frames_oponente, default_face, oponent_default_face, rol
     global first_frame
-    dibujar_diana_sobre_frame(frame_oponente, mis_datos['hand_x'], mis_datos['hand_y'], hand_radius)
+    # dibujar_diana_sobre_frame(frame_oponente, mis_datos['hand_x'], mis_datos['hand_y'], hand_radius)
 
     msj = "Te quedan " + str(lifes_left) + " vidas"
     cv2.putText(frame_jugador, msj, (10, frame_jugador.shape[0] - 10), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2, cv2.LINE_AA)
@@ -224,15 +251,19 @@ def renderiza_frames(frame_oponente, frame_jugador, mis_datos, del_oponente):
     beat_frames_oponente = aplicar_latido(frame_oponente, beat_frames_oponente)
     if(obtain_time_left() == 0):
         start_time = None
-        if(verificar_superposicion(mis_datos, del_oponente) == True):
-            lifes_left = lifes_left - 1
+        impacto_jugador = verificar_superposicion(mis_datos, del_oponente)
+        impacto_oponente = verificar_superposicion(del_oponente, mis_datos)
+        if(impacto_jugador):
+            lifes_left -= 1
             beat_frames_jugador = 5  # Activa el efecto de latido por 5 frames
-        if(verificar_superposicion(del_oponente, mis_datos) == True):
+        if(impacto_oponente):
             beat_frames_oponente = 5  # Activa el efecto de latido por 5 frames
+        if impacto_jugador or impacto_oponente:
+            time.sleep(2)  # Pausa post disparo
         if(lifes_left == 0):
             return 1
     # combinada = np.hstack((frame_oponente, frame_jugador))
-
+    # frame_jugador = superponer_pistola(frame_jugador, mis_datos['hand_x'], mis_datos['hand_y'], pistola_img)
     cv2.imshow(rol + "_oponente", frame_oponente)
     cv2.waitKey(1)
     cv2.imshow(rol + "_jugador", frame_jugador)
@@ -300,9 +331,44 @@ def use_default_face(frame_jugador):
         frame_jugador[y:y + size, x:x + size] = resized_face
     return frame_jugador
 
-if __name__ == "__main__":
-    # Iniciar servidor y aceptar jugador 2
-    servidor = int(input("Ingresa 1 para servidor y 2 para cliente: "))
+def mostrar_menu():
+    img = np.zeros((400, 600, 3), dtype=np.uint8)
+    cv2.putText(img, "Presiona 'c' para Crear partida", (50, 150), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
+    cv2.putText(img, "Presiona 'u' para Unirse a partida", (50, 250), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
+    cv2.imshow("Menu", img)
+
+    while True:
+        key = cv2.waitKey(0)
+        if key == ord('c'):
+            cv2.destroyAllWindows()
+            return 1
+        elif key == ord('u'):
+            cv2.destroyAllWindows()
+            return 2
+def mostrar_new_game():
+    img = np.zeros((400, 600, 3), dtype=np.uint8)
+    cv2.putText(img, "Presiona 'r' para volver a jugar", (50, 150), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
+    cv2.putText(img, "Presiona 'esc' para salir", (50, 250), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
+    cv2.imshow("Menu", img)
+
+    while True:
+        key = cv2.waitKey(0)
+        if key == ord('r'):
+            cv2.destroyAllWindows()
+            return True
+        else:
+            cv2.destroyAllWindows()
+            return False
+def sincronizar_relojes(conn):
+    t0 = time.time()
+    conn.sendall(json.dumps({"sync": t0}).encode())
+    response = conn.recv(1024)
+    t1 = time.time()
+    t_server = json.loads(response.decode())['server_time']
+    print(f"Diferencia estimada: {(t_server - (t0 + t1)/2)*1000:.2f} ms")
+def main():
+    newGame = False
+    servidor = mostrar_menu()
     if(servidor == 1):
         server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         server_socket.bind((SERVER_HOST, PORT))
@@ -320,19 +386,30 @@ if __name__ == "__main__":
         init_info = json.loads(init_data.decode())
         print(f"Asignado como Jugador {init_info['player_id']}")
         conn = server_socket
-        cap = cv2.VideoCapture(2)
+        cap = cv2.VideoCapture(1)
     mis_datos = {}
     mis_datos['hand_x'] = 100
     mis_datos['hand_y'] = 100
     mis_datos['face_x'] = 100
     mis_datos['face_y'] = 100
+
+    if servidor == 1:
+        data = conn.recv(1024)
+        if b"sync" in data:
+            t_cliente = json.loads(data.decode())["sync"]
+            t_servidor = time.time()
+            conn.sendall(json.dumps({"server_time": t_servidor}).encode())
+    else:
+        sincronizar_relojes(conn)
+    
     try:
         #Limitamos la cantidad de frames para mejorar el rendimiento
-        frame_count = 0  # Contador de frames
+        frame_count = 0  
         while True:
             frame_count += 1
-            # if frame_count % 3 != 0:
-            #     continue  # Saltar este frame para reducir la carga
+            if frame_count == 2: # pasa 1 y no pasa 2
+                frame_count = 0
+                continue  
             mis_datos, frame_jugador = captura_datos_jugador(cap, mis_datos['hand_x'], mis_datos['hand_y'], mis_datos['face_x'], mis_datos['face_y'])
             frame_jugador = use_default_face(frame_jugador)
             enviar_datos_adversario(conn, frame_jugador, mis_datos)
@@ -343,7 +420,31 @@ if __name__ == "__main__":
             if(derrota == 1):
                 enviar_datos_adversario(conn, frame_jugador, mis_datos, 1)
                 mostrar_derrota()
+            if cv2.waitKey(30) == 27:  # ESC para salir
+                newGame = mostrar_new_game()
+                break
     except KeyboardInterrupt:
         print("\nServidor detenido manualmente.")
     finally:
-        server_socket.close()
+        if not newGame:
+            if cap:
+                cap.release()
+            cv2.destroyAllWindows()
+            if conn:
+                conn.close()
+            if servidor == 1 and server_socket:
+                server_socket.close()
+        return newGame
+
+if __name__ == "__main__":
+    newGame = True
+    while newGame:
+        newGame = False
+        try:
+            newGame = main()
+        except Exception as e:
+            newGame = False
+            print("FINALIZANDO JUEGO")
+
+
+    
