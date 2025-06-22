@@ -28,8 +28,8 @@ import time
 from playsound import playsound
 #import beepy as beep
 # Configuración del servidor
-SERVER_HOST = '0.0.0.0'
-CLIENT_HOST = '127.0.0.1'
+SERVER_HOST = '192.168.3.9'
+CLIENT_HOST = '192.168.3.9'
 PORT = 65432
 start_time = None
 face_radius = 110
@@ -449,6 +449,7 @@ def sincronizar_relojes(conn):
     print(f"Diferencia estimada: {(t_server - (t0 + t1)/2)*1000:.2f} ms")
 
 def main():
+    global rol
     newGame = False
     servidor = mostrar_menu()
     if(servidor == 1):
