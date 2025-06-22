@@ -138,7 +138,7 @@ def obtain_time_left():
     elapsed = time.time() - start_time
     if elapsed >= countdown_seconds:
         start_time = time.time()  # Reinicia el contador cuando llega a cero
-        return countdown_seconds
+        return 0
     return max(0, countdown_seconds - int(elapsed))
 
 def reproducir_cuenta_regresiva(i):
