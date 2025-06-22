@@ -133,8 +133,8 @@ def accept_clients(server_socket):
 def obtain_time_left():
     global start_time
     if start_time is None:
-        start_time = cv2.getTickCount()
-    elapsed = (cv2.getTickCount() - start_time) / cv2.getTickFrequency()
+        return countdown_seconds
+    elapsed = time.time() - start_time
     return max(0, countdown_seconds - int(elapsed))
 
 def reproducir_cuenta_regresiva(i):
@@ -449,7 +449,7 @@ def sincronizar_relojes(conn):
     print(f"Diferencia estimada: {(t_server - (t0 + t1)/2)*1000:.2f} ms")
 
 def main():
-    global rol
+    global rol, start_time
     newGame = False
     servidor = mostrar_menu()
     if(servidor == 1):
@@ -458,18 +458,22 @@ def main():
         server_socket.listen(2)
         conn = accept_clients(server_socket)
         cap = cv2.VideoCapture(0)
+        # Sincronización de start_time
+        start_time = time.time()
+        conn.sendall(json.dumps({"start_time": start_time}).encode())
     else:
         rol = 'Cliente'
-        # Conexión al servidor
         server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         server_socket.connect((CLIENT_HOST, PORT))
         print("Conectado al servidor. Esperando asignación...")
-        # Recibir confirmación e ID de jugador
         init_data = server_socket.recv(1024)
         init_info = json.loads(init_data.decode())
         print(f"Asignado como Jugador {init_info['player_id']}")
         conn = server_socket
         cap = cv2.VideoCapture(2)
+        # Recibir start_time del servidor
+        start_time_data = conn.recv(1024)
+        start_time = json.loads(start_time_data.decode())["start_time"]
     mis_datos = {}
     mis_datos['hand_x'] = 100
     mis_datos['hand_y'] = 100
