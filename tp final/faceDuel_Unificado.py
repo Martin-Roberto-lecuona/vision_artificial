@@ -34,7 +34,7 @@ PORT = 65432
 start_time = None
 face_radius = 120
 hand_radius = 40
-lifes_left = 10
+lifes_left = 3
 beat_frames_jugador = 0  # Frames restantes para el efecto de latido
 beat_frames_oponente = 0
 last_face_image = None
@@ -259,7 +259,7 @@ def renderiza_frames(frame_oponente, frame_jugador, mis_datos, del_oponente):
         if(impacto_oponente):
             beat_frames_oponente = 5  # Activa el efecto de latido por 5 frames
         if impacto_jugador or impacto_oponente:
-            time.sleep(2)  # Pausa post disparo
+            time.sleep(1)  # Pausa post disparo
         if(lifes_left == 0):
             return 1
     # combinada = np.hstack((frame_oponente, frame_jugador))
@@ -278,19 +278,100 @@ def renderiza_frames(frame_oponente, frame_jugador, mis_datos, del_oponente):
 
 def mostrar_derrota():
     cv2.destroyAllWindows()
-    derrota_img = np.zeros((300, 600, 3), dtype=np.uint8)
-    cv2.putText(derrota_img, "Derrota", (120, 180), cv2.FONT_HERSHEY_SIMPLEX, 3, (0, 0, 255), 8, cv2.LINE_AA)
-    cv2.imshow("Fin del juego", derrota_img)
-    cv2.waitKey(10000)
+    altura, ancho = 400, 800
+    derrota_img = np.zeros((altura, ancho, 3), dtype=np.uint8)
+    texto = "DERROTA"
+    color_base = (0, 0, 255)
+    for i in range(30):  # 30 frames ~1 segundo
+        img = derrota_img.copy()
+        # Efecto de destello: alterna el color del texto
+        if i % 6 < 3:
+            color = (0, 0, 255)
+        else:
+            color = (0, 0, 100 + 50 * (i % 3))
+        # Efecto de "zoom": el texto crece
+        escala = 3 + 0.1 * i
+        grosor = 8 + i // 5
+        # Fondo con líneas rojas animadas
+        for j in range(0, ancho, 40):
+            cv2.line(img, (j + (i*10)%40, 0), (j + (i*10)%40, altura), (0,0,80), 2)
+        # Texto central
+        (text_w, text_h), _ = cv2.getTextSize(texto, cv2.FONT_HERSHEY_SIMPLEX, escala, grosor)
+        x = (ancho - text_w) // 2
+        y = (altura + text_h) // 2
+        cv2.putText(img, texto, (x, y), cv2.FONT_HERSHEY_SIMPLEX, escala, color, grosor, cv2.LINE_AA)
+        cv2.imshow("Fin del juego", img)
+        cv2.waitKey(30)
+    # Mantener cartel final
+    for i in range(100):
+        img = derrota_img.copy()
+        for j in range(0, ancho, 40):
+            cv2.line(img, (j, 0), (j, altura), (0,0,80), 2)
+        (text_w, text_h), _ = cv2.getTextSize(texto, cv2.FONT_HERSHEY_SIMPLEX, 6, 14)
+        x = (ancho - text_w) // 2
+        y = (altura + text_h) // 2
+        cv2.putText(img, texto, (x, y), cv2.FONT_HERSHEY_SIMPLEX, 6, color_base, 14, cv2.LINE_AA)
+        cv2.imshow("Fin del juego", img)
+        cv2.waitKey(50)
     cv2.destroyAllWindows()
     sys.exit()
 
 def mostrar_victoria():
     cv2.destroyAllWindows()
-    victoria_img = np.zeros((300, 600, 3), dtype=np.uint8)
-    cv2.putText(victoria_img, "Victoria", (100, 180), cv2.FONT_HERSHEY_SIMPLEX, 3, (0, 255, 0), 8, cv2.LINE_AA)
-    cv2.imshow("Fin del juego", victoria_img)
-    cv2.waitKey(10000)
+    altura, ancho = 400, 800
+    victoria_img = np.zeros((altura, ancho, 3), dtype=np.uint8)
+    texto = "VICTORIA"
+    color_base = (0, 255, 0)
+    for i in range(30):  # 30 frames ~1 segundo
+        img = victoria_img.copy()
+        # Efecto de destello: alterna el color del texto
+        if i % 6 < 3:
+            color = (0, 255, 0)
+        else:
+            color = (0, 100 + 50 * (i % 3), 0)
+        # Efecto de "zoom": el texto crece
+        escala = 3 + 0.1 * i
+        grosor = 8 + i // 5
+        # Fondo con líneas verdes animadas
+        for j in range(0, ancho, 40):
+            cv2.line(img, (j + (i*10)%40, 0), (j + (i*10)%40, altura), (0,80,0), 2)
+        # Calcular posición y tamaño del texto
+        (text_w, text_h), _ = cv2.getTextSize(texto, cv2.FONT_HERSHEY_SIMPLEX, escala, grosor)
+        x = (ancho - text_w) // 2
+        y = (altura + text_h) // 2
+        # Añadir destellos animados acompañando el texto
+        if i % 5 == 0:
+            for k in range(8):
+                ang = np.deg2rad(k * 45 + i*10)
+                # Líneas desde el borde del texto hacia afuera
+                x1 = int(x + text_w/2 + (text_w/2) * np.cos(ang))
+                y1 = int(y - text_h/2 + (text_h/2) * np.sin(ang))
+                x2 = int(x + text_w/2 + (text_w/2 + 80) * np.cos(ang))
+                y2 = int(y - text_h/2 + (text_h/2 + 80) * np.sin(ang))
+                cv2.line(img, (x1, y1), (x2, y2), (0,255,255), 4)
+        # Texto central
+        cv2.putText(img, texto, (x, y), cv2.FONT_HERSHEY_SIMPLEX, escala, color, grosor, cv2.LINE_AA)
+        cv2.imshow("Fin del juego", img)
+        cv2.waitKey(30)
+    # Mantener cartel final
+    for i in range(100):
+        img = victoria_img.copy()
+        for j in range(0, ancho, 40):
+            cv2.line(img, (j, 0), (j, altura), (0,80,0), 2)
+        (text_w, text_h), _ = cv2.getTextSize(texto, cv2.FONT_HERSHEY_SIMPLEX, 6, 14)
+        x = (ancho - text_w) // 2
+        y = (altura + text_h) // 2
+        # Destellos fijos acompañando el texto
+        for k in range(8):
+            ang = np.deg2rad(k * 45)
+            x1 = int(x + text_w/2 + (text_w/2) * np.cos(ang))
+            y1 = int(y - text_h/2 + (text_h/2) * np.sin(ang))
+            x2 = int(x + text_w/2 + (text_w/2 + 80) * np.cos(ang))
+            y2 = int(y - text_h/2 + (text_h/2 + 80) * np.sin(ang))
+            cv2.line(img, (x1, y1), (x2, y2), (0,255,255), 4)
+        cv2.putText(img, texto, (x, y), cv2.FONT_HERSHEY_SIMPLEX, 6, color_base, 14, cv2.LINE_AA)
+        cv2.imshow("Fin del juego", img)
+        cv2.waitKey(50)
     cv2.destroyAllWindows()
     sys.exit()
 
@@ -366,6 +447,7 @@ def sincronizar_relojes(conn):
     t1 = time.time()
     t_server = json.loads(response.decode())['server_time']
     print(f"Diferencia estimada: {(t_server - (t0 + t1)/2)*1000:.2f} ms")
+
 def main():
     newGame = False
     servidor = mostrar_menu()
@@ -445,6 +527,3 @@ if __name__ == "__main__":
         except Exception as e:
             newGame = False
             print("FINALIZANDO JUEGO")
-
-
-    
