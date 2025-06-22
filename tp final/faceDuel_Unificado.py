@@ -24,6 +24,7 @@ import pickle
 import math
 import numpy as np
 import time
+import ntplib
 
 from playsound import playsound
 #import beepy as beep
@@ -34,7 +35,7 @@ PORT = 65432
 start_time = None
 face_radius = 110
 hand_radius = 40
-lifes_left = 3
+lifes_left = 10
 beat_frames_jugador = 0  # Frames restantes para el efecto de latido
 beat_frames_oponente = 0
 last_face_image = None
@@ -130,12 +131,24 @@ def accept_clients(server_socket):
     conn.sendall(json.dumps({"msg": "connected", "player_id": 0}).encode())
     return conn
 
+def get_ntp_time():
+    try:
+        c = ntplib.NTPClient()
+        response = c.request('pool.ntp.org', version=3)
+        return response.tx_time
+    except Exception as e:
+        print(f"No se pudo obtener la hora NTP: {e}")
+        return time.time()
+
 def obtain_time_left():
     global start_time
-    if start_time is None:
-        start_time = cv2.getTickCount()
-    elapsed = (cv2.getTickCount() - start_time) / cv2.getTickFrequency()
-    return max(0, countdown_seconds - int(elapsed))
+    # start_time debe ser la hora NTP de inicio, igual en ambos equipos
+    now = get_ntp_time()
+    # El contador refleja el tiempo real: cuánto falta para el evento
+    # Por ejemplo, si start_time es la hora de inicio de la ronda:
+    # countdown_seconds es la duración total de la cuenta regresiva
+    time_left = countdown_seconds - (now - start_time)
+    return max(0, int(time_left))
 
 def reproducir_cuenta_regresiva(i):
     # anda mal en windows. 
@@ -449,7 +462,7 @@ def sincronizar_relojes(conn):
     print(f"Diferencia estimada: {(t_server - (t0 + t1)/2)*1000:.2f} ms")
 
 def main():
-    global rol
+    global rol, start_time
     newGame = False
     servidor = mostrar_menu()
     if(servidor == 1):
@@ -458,18 +471,24 @@ def main():
         server_socket.listen(2)
         conn = accept_clients(server_socket)
         cap = cv2.VideoCapture(0)
+        # Sincronización: el servidor obtiene la hora NTP y la envía al cliente
+        ntp_start_time = get_ntp_time()
+        start_time = ntp_start_time
+        conn.sendall(json.dumps({"ntp_start_time": ntp_start_time}).encode())
     else:
         rol = 'Cliente'
-        # Conexión al servidor
         server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         server_socket.connect((CLIENT_HOST, PORT))
         print("Conectado al servidor. Esperando asignación...")
-        # Recibir confirmación e ID de jugador
         init_data = server_socket.recv(1024)
         init_info = json.loads(init_data.decode())
         print(f"Asignado como Jugador {init_info['player_id']}")
         conn = server_socket
         cap = cv2.VideoCapture(2)
+        # Recibir hora NTP del servidor
+        ntp_data = conn.recv(1024)
+        ntp_info = json.loads(ntp_data.decode())
+        start_time = ntp_info["ntp_start_time"]
     mis_datos = {}
     mis_datos['hand_x'] = 100
     mis_datos['hand_y'] = 100
