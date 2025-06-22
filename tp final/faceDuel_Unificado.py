@@ -142,11 +142,9 @@ def get_ntp_time():
 
 def obtain_time_left():
     global start_time
-    # start_time debe ser la hora NTP de inicio, igual en ambos equipos
     now = get_ntp_time()
-    # El contador refleja el tiempo real: cuánto falta para el evento
-    # Por ejemplo, si start_time es la hora de inicio de la ronda:
-    # countdown_seconds es la duración total de la cuenta regresiva
+    if start_time is None:
+        start_time = now
     time_left = countdown_seconds - (now - start_time)
     return max(0, int(time_left))
 
