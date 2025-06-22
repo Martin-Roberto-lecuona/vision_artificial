@@ -32,7 +32,7 @@ SERVER_HOST = '0.0.0.0'
 CLIENT_HOST = '127.0.0.1'
 PORT = 65432
 start_time = None
-face_radius = 120
+face_radius = 110
 hand_radius = 40
 lifes_left = 3
 beat_frames_jugador = 0  # Frames restantes para el efecto de latido
@@ -259,7 +259,7 @@ def renderiza_frames(frame_oponente, frame_jugador, mis_datos, del_oponente):
         if(impacto_oponente):
             beat_frames_oponente = 5  # Activa el efecto de latido por 5 frames
         if impacto_jugador or impacto_oponente:
-            time.sleep(1)  # Pausa post disparo
+            time.sleep(0.5)  # Pausa post disparo
         if(lifes_left == 0):
             return 1
     # combinada = np.hstack((frame_oponente, frame_jugador))
