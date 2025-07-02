@@ -29,7 +29,7 @@ from playsound import playsound
 #import beepy as beep
 
 # Configuración del servidor
-SERVER_HOST = '192.168.31.209'
+SERVER_HOST = '192.168.31.58'
 CLIENT_HOST = '192.168.31.58'
 PORT = 65432
 start_time = None
@@ -140,10 +140,11 @@ def obtain_time_left():
 
 def reproducir_cuenta_regresiva(i):
     # anda mal en windows. 
-    if i < 0:
-        playsound("beep.mp3")
-    elif i == 0:
-        playsound("disparo.mp3")
+    # if i < 0:
+    #     playsound("beep.mp3")
+    # elif i == 0:
+    #     playsound("disparo.mp3")
+    return 
 
 def captura_datos_jugador(cap, last_hand_x, last_hand_y, last_face_x, last_face_y):
     global default_face, first_frame
@@ -472,7 +473,7 @@ def main():
         init_info = json.loads(init_data.decode())
         print(f"Asignado como Jugador {init_info['player_id']}")
         conn = server_socket
-        cap = cv2.VideoCapture(0)
+        cap = cv2.VideoCapture(1)
     mis_datos = {}
     mis_datos['hand_x'] = 100
     mis_datos['hand_y'] = 100
@@ -490,26 +491,27 @@ def main():
     
     try:
         #Limitamos la cantidad de frames para mejorar el rendimiento
-        #frame_count = 0  
+        frame_count = 0  
         
         prev_frame_time = 0
         new_frame_time = 0
+
+        mis_datos, frame_jugador = captura_datos_jugador(cap, mis_datos['hand_x'], mis_datos['hand_y'], mis_datos['face_x'], mis_datos['face_y'])       
         
         while True:
-            # frame_count += 1
-            # if frame_count == 2: # pasa 1 y no pasa 2
-            #    frame_count = 0
-            #    continue 
-     
-            mis_datos, frame_jugador = captura_datos_jugador(cap, mis_datos['hand_x'], mis_datos['hand_y'], mis_datos['face_x'], mis_datos['face_y'])
             
             # FPS
             new_frame_time = time.time()
-            fps = 1 / (new_frame_time - prev_frame_time + 1e-6)
+            fps = 1 / ( new_frame_time - prev_frame_time + 1e-6 ) 
             prev_frame_time = new_frame_time
             
-            print(fps)            
+            print("FPS:", "%.0f" % fps)
+
+            if frame_count % 3 == 0: 
+                mis_datos, frame_jugador = captura_datos_jugador(cap, mis_datos['hand_x'], mis_datos['hand_y'], mis_datos['face_x'], mis_datos['face_y'])       
             
+            frame_count += 1
+
             frame_jugador = use_default_face(frame_jugador, mis_datos)
             enviar_datos_adversario(conn, frame_jugador, mis_datos)
             frame_oponente, del_oponente, derrota_oponente = recibir_datos_adversario(conn)
