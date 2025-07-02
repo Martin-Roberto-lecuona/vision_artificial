@@ -27,9 +27,10 @@ import time
 
 from playsound import playsound
 #import beepy as beep
+
 # Configuración del servidor
-SERVER_HOST = '192.168.3.9'
-CLIENT_HOST = '192.168.3.9'
+SERVER_HOST = '192.168.31.209'
+CLIENT_HOST = '192.168.31.58'
 PORT = 65432
 start_time = None
 face_radius = 110
@@ -426,6 +427,7 @@ def mostrar_menu():
         elif key == ord('u'):
             cv2.destroyAllWindows()
             return 2
+        
 def mostrar_new_game():
     img = np.zeros((400, 600, 3), dtype=np.uint8)
     cv2.putText(img, "Presiona 'r' para volver a jugar", (50, 150), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
@@ -440,6 +442,7 @@ def mostrar_new_game():
         else:
             cv2.destroyAllWindows()
             return False
+        
 def sincronizar_relojes(conn):
     t0 = time.time()
     conn.sendall(json.dumps({"sync": t0}).encode())
@@ -469,7 +472,7 @@ def main():
         init_info = json.loads(init_data.decode())
         print(f"Asignado como Jugador {init_info['player_id']}")
         conn = server_socket
-        cap = cv2.VideoCapture(2)
+        cap = cv2.VideoCapture(0)
     mis_datos = {}
     mis_datos['hand_x'] = 100
     mis_datos['hand_y'] = 100
@@ -487,13 +490,26 @@ def main():
     
     try:
         #Limitamos la cantidad de frames para mejorar el rendimiento
-        frame_count = 0  
+        #frame_count = 0  
+        
+        prev_frame_time = 0
+        new_frame_time = 0
+        
         while True:
-            frame_count += 1
-            if frame_count == 2: # pasa 1 y no pasa 2
-                frame_count = 0
-                continue  
+            # frame_count += 1
+            # if frame_count == 2: # pasa 1 y no pasa 2
+            #    frame_count = 0
+            #    continue 
+     
             mis_datos, frame_jugador = captura_datos_jugador(cap, mis_datos['hand_x'], mis_datos['hand_y'], mis_datos['face_x'], mis_datos['face_y'])
+            
+            # FPS
+            new_frame_time = time.time()
+            fps = 1 / (new_frame_time - prev_frame_time + 1e-6)
+            prev_frame_time = new_frame_time
+            
+            print(fps)            
+            
             frame_jugador = use_default_face(frame_jugador, mis_datos)
             enviar_datos_adversario(conn, frame_jugador, mis_datos)
             frame_oponente, del_oponente, derrota_oponente = recibir_datos_adversario(conn)
